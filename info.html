@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gegevens</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --ink: #0f0e0c;
+    --paper: #f5f2ec;
+    --cream: #ede9e0;
+    --rule: #ccc9bf;
+    --accent: #c8390a;
+    --green: #1a6e4a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Mono', monospace; background: var(--paper); color: var(--ink); min-height: 100vh; }
+
+  header { background: var(--ink); color: var(--paper); padding: 16px 32px; display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+  .back-btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 6px 14px; border: 1.5px solid rgba(255,255,255,0.3); border-radius: 3px; color: var(--paper); background: transparent; cursor: pointer; text-decoration: none; letter-spacing: 0.06em; transition: all 0.15s; }
+  .back-btn:hover { background: rgba(255,255,255,0.1); }
+  header h1 { font-family: 'DM Mono', monospace; font-size: 0.65rem; opacity: 0.45; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; font-weight: 400; }
+  .klant-name { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
+  .sync { font-size: 0.65rem; opacity: 0.4; margin-left: auto; letter-spacing: 0.05em; }
+  .btn-delete-klant { font-family: 'DM Mono', monospace; font-size: 0.68rem; padding: 5px 12px; border: 1.5px solid #c8390a; border-radius: 3px; color: #c8390a; background: transparent; cursor: pointer; letter-spacing: 0.06em; transition: all 0.15s; white-space: nowrap; }
+  .btn-delete-klant:hover { background: #c8390a; color: white; }
+  #undoToast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--paper); padding: 10px 14px 10px 18px; border-radius: 4px; font-size: 0.72rem; display: flex; align-items: center; gap: 14px; opacity: 0; transform: translateY(10px); transition: all 0.25s; pointer-events: none; z-index: 9999; }
+  #undoToast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  #undoBtn { font-family: 'DM Mono', monospace; font-size: 0.72rem; background: none; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 3px; color: var(--paper); padding: 3px 10px; cursor: pointer; letter-spacing: 0.04em; white-space: nowrap; }
+  #undoBtn:hover { background: rgba(255,255,255,0.15); }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 6px; padding: 32px; max-width: 400px; width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .modal h2 { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 600; margin-bottom: 12px; }
+  .modal p { font-size: 0.78rem; color: #555; margin-bottom: 24px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-actions .btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 7px 16px; border: 1.5px solid currentColor; border-radius: 3px; cursor: pointer; letter-spacing: 0.06em; background: transparent; }
+  .modal-actions .btn-cancel { color: #666; border-color: #ccc; }
+  .modal-actions .btn-cancel:hover { background: #f5f5f5; }
+  .modal-actions .btn-confirm-delete { background: #c8390a; border-color: #c8390a; color: white; }
+  .modal-actions .btn-confirm-delete:hover { background: #a82e06; border-color: #a82e06; }
+  .sync.saving { opacity: 1; color: #6ecfa0; }
+  .sync.error { opacity: 1; color: var(--accent); }
+
+  main { max-width: none; margin: 0; padding: 28px 32px; display: none; }
+
+  /* ── TABS ── */
+  .tab-bar { display: flex; gap: 8px; margin-bottom: 28px; }
+  .tab-btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 7px 20px; border: 1.5px solid var(--rule); border-radius: 3px; cursor: pointer; background: white; color: var(--ink); letter-spacing: 0.06em; transition: all 0.15s; }
+  .tab-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tab-btn:hover:not(.active) { background: var(--cream); }
+
+  /* ── STATUS TAB ── */
+  .status-grid { display: flex; flex-wrap: nowrap; gap: 20px; overflow-x: auto; padding-bottom: 16px; align-items: flex-start; }
+  .status-col-block { flex-shrink: 0; width: 280px; }
+
+  /* ── STATUS COLUMN ── */
+  .status-section { margin-bottom: 18px; }
+  .status-section-title { font-family: 'Fraunces', serif; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 5px; margin-bottom: 0; }
+  .status-field-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 32px; border-bottom: 1px solid var(--rule); font-size: 0.68rem; }
+  .status-field-label { color: #666; white-space: nowrap; flex-shrink: 0; }
+  .status-field-input { display: flex; align-items: center; gap: 4px; position: relative; }
+  .status-date-display { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--ink); cursor: pointer; white-space: nowrap; min-width: 88px; display: inline-block; }
+  .status-date-display:hover { color: var(--accent); }
+  .status-date-display.is-nvt { color: #999; font-style: italic; }
+  .status-date-display.is-empty { color: transparent; }
+  .status-cal-icon { color: #bbb; cursor: pointer; flex-shrink: 0; display: none; align-items: center; margin-left: 2px; }
+  .status-cal-icon.visible { display: flex; }
+  .status-cal-icon:hover { color: var(--accent); }
+  .status-picker-popup { display: none; position: absolute; right: 0; top: 100%; z-index: 200; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.18); border-radius: 3px; overflow: hidden; }
+  .status-picker-popup.open { display: flex; }
+  .status-picker-input { border: none; outline: none; font-family: 'DM Mono', monospace; font-size: 0.68rem; padding: 6px 8px; background: white; color: var(--ink); flex: 1; }
+  .status-yn-select { border: none; border-bottom: 1px solid var(--rule); outline: none; font-family: 'DM Mono', monospace; font-size: 0.68rem; background: transparent; color: var(--ink); padding: 1px 2px; cursor: pointer; -webkit-appearance: none; appearance: none; width: 60px; }
+  .status-compleet-btn { font-family: 'DM Mono', monospace; font-size: 0.62rem; padding: 3px 8px; border: 1.5px solid #2a5f8f; border-radius: 3px; color: #2a5f8f; background: #e8f0f8; cursor: pointer; letter-spacing: 0.04em; transition: all 0.15s; white-space: nowrap; }
+  .status-compleet-btn:hover { background: #2a5f8f; color: white; }
+  .status-compleet-btn.complete { background: #d5ede2; border-color: #1a6e4a; color: #1a6e4a; }
+  .status-compleet-btn.complete:hover { background: #1a6e4a; color: white; }
+  .nvt-btn { font-family: 'DM Mono', monospace; font-size: 0.65rem; padding: 5px 10px; border: none; border-left: 1px solid #ddd; cursor: pointer; background: var(--ink); color: var(--paper); white-space: nowrap; font-weight: 500; letter-spacing: 0.04em; }
+  .nvt-btn:hover { background: #2a2825; }
+  .status-field-row.alarm { background: #ffd5d5; }
+  .status-opmerkingen { width: 100%; min-height: 90px; font-family: 'DM Mono', monospace; font-size: 0.68rem; border: 1px solid var(--rule); border-radius: 2px; padding: 6px 8px; background: white; color: var(--ink); resize: vertical; outline: none; line-height: 1.5; }
+  .status-opmerkingen:focus { border-color: var(--ink); }
+
+  .section { margin-bottom: 44px; }
+  .section-title { font-family: 'Fraunces', serif; font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 8px; border-bottom: 2px solid var(--ink); margin-bottom: 0; }
+
+  .field-table { width: 100%; border-collapse: collapse; }
+  .field-table thead th { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 12px; background: var(--cream); color: #888; border-bottom: 1px solid var(--rule); font-weight: 500; }
+  .field-table thead th:first-child { text-align: left; }
+  .field-table thead th:not(:first-child) { text-align: center; width: 100px; }
+  .field-table tbody tr { border-bottom: 1px solid var(--rule); transition: background 0.1s; }
+  .field-table tbody tr:hover { background: #faf8f4; }
+  .field-table tbody td { padding: 9px 12px; font-size: 0.73rem; }
+  .field-table tbody td:not(:first-child) { text-align: center; }
+
+  .toggle { width: 38px; height: 28px; border: 1.5px solid var(--rule); border-radius: 3px; font-family: 'DM Mono', monospace; font-size: 0.78rem; cursor: pointer; font-weight: 500; transition: all 0.15s; background: white; color: #bbb; }
+  .toggle.on { background: var(--green); border-color: var(--green); color: white; }
+  .toggle:hover { filter: brightness(0.94); }
+  .rechtbank-table .toggle.on { background: #d4771a; border-color: #d4771a; }
+
+  #loadingOverlay { position: fixed; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 999; }
+  #loadingOverlay p { font-size: 0.75rem; opacity: 0.5; letter-spacing: 0.08em; }
+  .spinner { width: 28px; height: 28px; border: 2px solid var(--rule); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
+
+<header>
+  <a class="back-btn" href="index.html">← Terug</a>
+  <div>
+    <div class="klant-name" id="klantName">—</div>
+    <h1>Gegevens</h1>
+  </div>
+  <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
+  <span class="sync" id="syncStatus">● opgeslagen</span>
+</header>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h2>Klant verwijderen</h2>
+    <p>Weet je zeker dat je <strong id="deleteModalName"></strong> wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeDeleteModal()">Annuleren</button>
+      <button class="btn btn-confirm-delete" onclick="confirmDelete()">Verwijderen</button>
+    </div>
+  </div>
+</div>
+
+<div id="undoToast">
+  <span>Klant verwijderd</span>
+  <button id="undoBtn" onclick="undoDelete()">Ongedaan maken</button>
+</div>
+
+<main id="mainContent"></main>
+
+<script>
+const SUPABASE_URL      = 'https://iubmajperipojqtlhwqk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Ym1hanBlcmlwb2pxdGxod3FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODM2MzcsImV4cCI6MjA5NDA1OTYzN30.IiUQAGO9rFuSC2LQlFr6dzmQPatCS-N7mjZdJzEQRNs';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const SECTIONS = [
+  {
+    title: 'Persoonsgegevens',
+    fields: [
+      { key: 'leg_ouders_p1',  label: 'Legitimatie ouders partner 1' },
+      { key: 'leg_ouders_p2',  label: 'Legitimatie ouders partner 2' },
+      { key: 'leg_kinderen',   label: 'Legitimatie kinderen' },
+      { key: 'huwelijkse_vw',  label: 'Huwelijkse / Partner voorwaarden' },
+      { key: 'testament',      label: 'Testament' },
+      { key: 'werkgever_p1',   label: 'Werkgeversverklaring partner 1' },
+      { key: 'werkgever_p2',   label: 'Werkgeversverklaring partner 2' },
+      { key: 'loonstroken_p1', label: 'Recente loonstroken partner 1' },
+      { key: 'loonstroken_p2', label: 'Recente loonstroken partner 2' },
+      { key: 'jaaropgave_p1',  label: 'Jaaropgave laatste 2 jaar partner 1' },
+      { key: 'jaaropgave_p2',  label: 'Jaaropgave laatste 2 jaar partner 2' },
+      { key: 'belasting_p1',   label: 'Belastingaangifte laatste 2 jaar partner 1' },
+      { key: 'belasting_p2',   label: 'Belastingaangifte laatste 2 jaar partner 2' },
+      { key: 'waarde_autos',   label: "Gegevens waarde auto's" },
+      { key: 'pensioen_p1',    label: 'Pensioengegevens partner 1' },
+      { key: 'pensioen_p2',    label: 'Pensioengegevens partner 2' },
+      { key: 'saldi',          label: 'Saldi en rekeningnummers bank- en spaarrekeningen' },
+      { key: 'saldo_polis',    label: 'Saldo gekoppelde spaar- en beleggingspolis' },
+      { key: 'lijfrente',      label: 'Lijfrenteregeling' },
+      { key: 'kapitaalverz',   label: 'Kapitaalverz spaarplan' },
+      { key: 'schulden',       label: 'Schulden / doorlopend credit / CC' },
+      { key: 'schenkingen',    label: 'Schenkingen / erfenissen' },
+    ]
+  },
+  {
+    title: 'Woning',
+    fields: [
+      { key: 'notarisakte',       label: 'Notarisakte eigen woning' },
+      { key: 'hypotheekgegevens', label: 'Hypotheekgegevens' },
+      { key: 'hypotheekakte',     label: 'Hypotheekakte' },
+      { key: 'woz',               label: 'WOZ waarde woning' },
+      { key: 'jaaropgave_hyp',    label: 'Jaaropgave hypotheek' },
+    ]
+  },
+  {
+    title: 'Zakelijk',
+    fields: [
+      { key: 'jaarcijfers_p1', label: 'Jaarcijfers laatste 3 jaar partner 1' },
+      { key: 'jaarcijfers_p2', label: 'Jaarcijfers laatste 3 jaar partner 2' },
+    ]
+  },
+  {
+    title: 'Rechtbank',
+    fields: [
+      { key: 'huwelijksakte',      label: 'Huwelijksakte / Partnerschapsakte' },
+      { key: 'kindverklaringen',   label: 'Kindverklaringen' },
+      { key: 'geboorteaktes',      label: 'Geboorteaktes' },
+      { key: 'pensioenverklaring', label: 'Pensioenverklaring' },
+    ]
+  }
+];
+
+const STATUS_SECTIONS = [
+  { title: 'Klanten 1e fase', color: '#2a5f8f', fields: [
+    { key: 'aangevraagd',  label: 'Toevoeging aangevraagd', type: 'date' },
+    { key: 'bevestigd',    label: 'Toevoeging bevestigd',   type: 'date' },
+    { key: 'gemaild',       label: 'Klant gemaild',          type: 'yn'   },
+    { key: '_info',          label: 'Info',                  type: 'info_status'  },
+    { key: 'actie_voor',     label: 'Actie voor',   type: 'date' },
+    { key: 'eerste_concept', label: '1e concept',   type: 'date' },
+  ]},
+  { title: 'Controle Advocaat', color: '#1a6e4a', fields: [
+    { key: 'ter_controle', label: 'Ter controle', type: 'date' },
+    { key: 'antwoord',     label: 'Antwoord',     type: 'date' },
+    { key: 'naar_klanten', label: 'Verwerkt', type: 'date' },
+  ]},
+  { title: 'Klanten concepten', color: '#d4771a', fields: [
+    { key: 'afspraak',          label: 'Concepten verstuurd', type: 'date' },
+    { key: 'reactie_ontvangen', label: 'Reactie ontvangen',  type: 'date' },
+    { key: 'concepten_akkoord', label: 'Concepten akkoord',  type: 'date' },
+  ]},
+  { title: 'Getekend', color: '#7a4f1e', fields: [
+    { key: 'akkoord_klanten', label: 'Klanten getekend', type: 'date' },
+    { key: '_docs',            label: 'Aktes compleet',   type: 'docs_status' },
+    { key: 'docs_verstuurd',  label: 'Verstuurd Advocaat', type: 'date' },
+  ]},
+  { title: 'Advocaat', color: '#5b3d8c', fields: [
+    { key: 'belafspraak', label: 'Belafspraak', type: 'date' },
+    { key: 'rechtbank',   label: 'Rechtbank',   type: 'date' },
+  ]},
+  { title: 'Rechtbank', color: '#c8390a', fields: [
+    { key: 'beschikking',        label: 'Beschikking',       type: 'date' },
+    { key: 'verstuurd_klanten',  label: 'Verstuurd klanten', type: 'date' },
+    { key: 'akkoord_klanter',    label: 'Akkoord klanten',   type: 'date' },
+  ]},
+  { title: 'Gemeente', color: '#4a4a4a', fields: [
+    { key: 'verstuurd_gemeente',     label: 'Verstuurd gemeente',     type: 'date' },
+    { key: 'inschrijving_ontvangen', label: 'Inschrijving ontvangen', type: 'date' },
+  ]},
+  { title: 'Afronding', color: '#1a6e4a', fields: [
+    { key: 'beeindigd',              label: 'Ingelicht en beeindigd', type: 'date' },
+    { key: 'vergoeding_aangevraagd', label: 'Vergoeding aangevraagd', type: 'date' },
+    { key: 'vergoeding_ontvangen',   label: 'Vergoeding ontvangen',   type: 'date' },
+    { key: 'zoza_afgerond',          label: 'ZOZA afgerond',          type: 'date' },
+  ]},
+];
+
+const params = new URLSearchParams(window.location.search);
+const dossierId = params.get('id');
+let infoData = {}, statusData = {};
+let saveTimer = null, statusSaveTimer = null, statusSaveQueue = {};
+let activeTab = params.get('tab') === 'klantstatus' ? 'klantstatus' : 'klantgegevens';
+let alarmSettings = {};
+
+function setSyncStatus(state) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync ' + state;
+  el.textContent = state === 'saving' ? '● opslaan...' : state === 'error' ? '● fout' : '● opgeslagen';
+}
+
+async function save() {
+  const naamA = (infoData._klant && infoData._klant.naam_a) || '';
+  const naamB = (infoData._klant && infoData._klant.naam_b) || '';
+  const parts = [naamA, naamB].filter(Boolean);
+  const payload = { info_data: JSON.stringify(infoData) };
+  if (parts.length > 0) {
+    payload.klant = parts.join(' - ');
+    document.getElementById('klantName').textContent = payload.klant;
+    document.title = `Gegevens – ${payload.klant}`;
+  }
+  const rechtbankKeys = ['huwelijksakte', 'kindverklaringen', 'geboorteaktes', 'pensioenverklaring'];
+  payload.docs_compleet = rechtbankKeys.every(key => {
+    const d = infoData[key] || { b: 0, a: 0 };
+    return d.b === d.a;
+  }) ? 'ja' : 'nee';
+
+  const tColsNee = ['ter_controle','antwoord','naar_klanten',
+   'belafspraak','rechtbank','beschikking',
+   'verstuurd_klanten','akkoord_klanter','docs_verstuurd',
+   'verstuurd_gemeente','inschrijving_ontvangen'];
+  const tColsJa = [...tColsNee, 'akkoord_klanten'];
+  const rb = infoData._dienstverlening && infoData._dienstverlening.rechtbank;
+  if (rb === 'Nee' || rb === 'Ja' || infoData._nvt) {
+    tColsJa.forEach(col => {
+      const v = statusData[col];
+      if (rb === 'Ja' && v === 'n.v.t.') {
+        payload[col] = null;
+        statusData[col] = null;
+      } else if ((rb === 'Nee' || infoData._nvt) && tColsNee.includes(col) && (!v || v === 'n.v.t.')) {
+        payload[col] = 'n.v.t.';
+        statusData[col] = 'n.v.t.';
+      }
+    });
+    refreshStatusAlarms();
+  }
+
+  const { error } = await db.from('dossiers').update(payload).eq('id', dossierId);
+  if (error) setSyncStatus('error'); else setSyncStatus('saved');
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  setSyncStatus('saving');
+  saveTimer = setTimeout(save, 700);
+}
+
+const PHASE_COLUMN_IDS = ['fase1','controle','concepten','getekend','advocaat','rechtbank','gemeente','afronding'];
+
+function hasValue(v) { return !!v && v !== 'n.v.t.'; }
+
+function isRechtbankNeeInfo() {
+  return !!(infoData._dienstverlening && infoData._dienstverlening.rechtbank === 'Nee');
+}
+
+function getInitialColumn(d) {
+  const rnee = isRechtbankNeeInfo();
+  if (hasValue(d.zoza_afgerond) || hasValue(d.vergoeding_ontvangen) || hasValue(d.vergoeding_aangevraagd) || hasValue(d.beeindigd)) return 'afronding';
+  if (hasValue(d.inschrijving_ontvangen))                               return 'afronding';
+  if (!rnee && hasValue(d.verstuurd_gemeente))                          return 'gemeente';
+  if (!rnee && hasValue(d.akkoord_klanter))                             return 'gemeente';
+  if (!rnee && (hasValue(d.verstuurd_klanten) || hasValue(d.beschikking))) return 'rechtbank';
+  if (!rnee && hasValue(d.rechtbank))                                   return 'rechtbank';
+  if (!rnee && hasValue(d.belafspraak))                                 return 'advocaat';
+  if (!rnee && hasValue(d.docs_verstuurd))                              return 'advocaat';
+  if (hasValue(d.akkoord_klanten))                                      return rnee ? 'afronding' : 'getekend';
+  if (hasValue(d.concepten_akkoord))                                    return 'getekend';
+  if (hasValue(d.reactie_ontvangen) || hasValue(d.afspraak))              return 'concepten';
+  if (hasValue(d.naar_klanten))                                         return 'concepten';
+  if (!rnee && (hasValue(d.antwoord) || hasValue(d.ter_controle)))        return 'controle';
+  if (hasValue(d.eerste_concept))                                       return rnee ? 'concepten' : 'controle';
+  return 'fase1';
+}
+
+function getCurrentPhaseIndex(data) {
+  const colId = isRechtbankNeeInfo() ? getInitialColumn(data) : (data.kanban_column || getInitialColumn(data));
+  const idx = PHASE_COLUMN_IDS.indexOf(colId);
+  return idx >= 0 ? idx : 0;
+}
+
+function refreshPhaseHighlight() {
+  const active = getCurrentPhaseIndex(statusData);
+  STATUS_SECTIONS.forEach((section, i) => {
+    const el = document.getElementById(`status-phase-title-${i}`);
+    if (!el) return;
+    if (i === active) {
+      el.style.cssText = `background:${section.color};color:white;border-radius:3px;padding:3px 6px;margin-bottom:4px;letter-spacing:0.08em;`;
+    } else {
+      el.style.cssText = `border-bottom:2px solid ${section.color};color:${section.color};margin-bottom:4px;`;
+    }
+  });
+}
+
+function refreshStatusAlarms() {
+  STATUS_SECTIONS.forEach(section => {
+    section.fields.forEach(f => {
+      const row = document.querySelector(`.status-field-row[data-key="${f.key}"]`);
+      if (row && ALARM_CHECKS[f.key]) row.classList.toggle('alarm', ALARM_CHECKS[f.key](statusData));
+    });
+  });
+  refreshPhaseHighlight();
+}
+
+function formatOpmTs(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+}
+
+const TOEV_COLS = ['aangevraagd','bevestigd','vergoeding_aangevraagd','vergoeding_ontvangen'];
+
+function propagateToevoegingNvt() {
+  // null treated as 0 — if a button was never set it counts as "no toevoeging"
+  const toevA = statusData.toevoeging_a ?? 0;
+  const toevB = statusData.toevoeging_b ?? 0;
+  if (toevA === 0 && toevB === 0) {
+    TOEV_COLS.forEach(col => saveStatusField(col, 'n.v.t.'));
+  } else if (toevA === 1 || toevB === 1) {
+    TOEV_COLS.forEach(col => { if (statusData[col] === 'n.v.t.') saveStatusField(col, null); });
+  }
+  refreshStatusAlarms();
+}
+
+function saveStatusField(key, value) {
+  statusData[key] = value;
+  refreshStatusAlarms();
+  statusSaveQueue[key] = value;
+  clearTimeout(statusSaveTimer);
+  setSyncStatus('saving');
+  statusSaveTimer = setTimeout(async () => {
+    const patch = { ...statusSaveQueue };
+    statusSaveQueue = {};
+    const { error } = await db.from('dossiers').update(patch).eq('id', dossierId);
+    if (error) setSyncStatus('error'); else setSyncStatus('saved');
+  }, 700);
+}
+
+function deadlinePassed(dateStr, days) {
+  if (!dateStr || dateStr === 'n.v.t.') return false;
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + (days || 0));
+  return d < new Date();
+}
+
+const ALARM_CHECKS = {
+  bevestigd:              r => { if (r.bevestigd) return false; const days = parseInt(alarmSettings.reactie_docs_teurlings) || 14; return deadlinePassed(r.aangevraagd, days); },
+  actie_voor:             r => !!(r.actie_voor && r.actie_voor !== 'n.v.t.' && new Date(r.actie_voor) < new Date()),
+
+  afspraak:               r => !r.afspraak && ((r.naar_klanten && r.naar_klanten !== 'n.v.t.') || (r.naar_klanten === 'n.v.t.' && !!r.eerste_concept)),
+  reactie_ontvangen:      r => { if (r.reactie_ontvangen) return false; const days = parseInt(alarmSettings.reactie_klanten_concepten) || 0; return !!days && deadlinePassed(r.afspraak, days); },
+  concepten_akkoord:      r => { if (r.concepten_akkoord) return false; const days = parseInt(alarmSettings.reactie_klanten_concepten) || 0; return !!days && deadlinePassed(r.reactie_ontvangen, days); },
+  ter_controle:           r => !r.ter_controle && !!(r.eerste_concept && r.eerste_concept !== 'n.v.t.'),
+  antwoord:               r => { if (r.antwoord) return false; const days = parseInt(alarmSettings.reactie_teurlings_concepten) || 0; return !!days && deadlinePassed(r.ter_controle, days); },
+  naar_klanten:           r => !r.naar_klanten && !!(r.antwoord && r.antwoord !== 'n.v.t.'),
+  akkoord_klanten:        r => !r.akkoord_klanten && !!r.concepten_akkoord,
+  docs_verstuurd:         r => !r.docs_verstuurd && !!(r.akkoord_klanten && r.akkoord_klanten !== 'n.v.t.'),
+  belafspraak:            r => !r.belafspraak && !!(r.docs_verstuurd && r.docs_verstuurd !== 'n.v.t.'),
+  rechtbank:              r => !r.rechtbank && deadlinePassed(r.belafspraak, 0),
+  beschikking:            r => { if (r.beschikking) return false; const days = parseInt(alarmSettings.reactie_beschikking) || 0; return !!days && deadlinePassed(r.rechtbank, days); },
+  verstuurd_klanten:      r => !r.verstuurd_klanten && !!(r.beschikking && r.beschikking !== 'n.v.t.'),
+  akkoord_klanter:        r => { if (r.akkoord_klanter) return false; const days = parseInt(alarmSettings.reactie_akkoord_beschikking) || 0; return !!days && deadlinePassed(r.verstuurd_klanten, days); },
+  verstuurd_gemeente:     r => !r.verstuurd_gemeente && !!(r.akkoord_klanter && r.akkoord_klanter !== 'n.v.t.'),
+  inschrijving_ontvangen: r => { if (r.inschrijving_ontvangen) return false; const days = parseInt(alarmSettings.reactie_inschrijving_gemeente) || 0; return !!days && deadlinePassed(r.verstuurd_gemeente, days); },
+  beeindigd:              r => !r.beeindigd && (!!(r.inschrijving_ontvangen && r.inschrijving_ontvangen !== 'n.v.t.') || (isRechtbankNeeInfo() && !!(r.akkoord_klanten && r.akkoord_klanten !== 'n.v.t.'))),
+  vergoeding_aangevraagd: r => !r.vergoeding_aangevraagd && (r.kanban_column === 'gemeente' || r.kanban_column === 'afronding' || hasValue(r.verstuurd_gemeente) || hasValue(r.beeindigd)),
+  vergoeding_ontvangen:   r => { if (r.vergoeding_ontvangen) return false; const days = parseInt(alarmSettings.reactie_vergoeding_rvr) || 0; return !!days && deadlinePassed(r.vergoeding_aangevraagd, days); },
+  zoza_afgerond:          r => !r.zoza_afgerond && !!(r.beeindigd && r.beeindigd !== 'n.v.t.' && r.vergoeding_ontvangen),
+};
+
+function renderStatusInput(key, value, type) {
+  const wrap = document.createElement('div');
+  wrap.className = 'status-field-input';
+
+  if (type === 'date') {
+    const isNvt = value === 'n.v.t.';
+    const hasDate = !!value && !isNvt;
+
+    const display = document.createElement('span');
+    display.className = 'status-date-display' + (isNvt ? ' is-nvt' : !hasDate ? ' is-empty' : '');
+    if (hasDate) {
+      const d = new Date(value);
+      display.textContent = isNaN(d.getTime()) ? value : d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } else {
+      display.textContent = isNvt ? 'n.v.t.' : 'dd-mm-jjjj';
+    }
+
+    const popup = document.createElement('div');
+    popup.className = 'status-picker-popup';
+
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.className = 'status-picker-input';
+    if (hasDate) dateInput.value = value;
+
+    const nvtBtn = document.createElement('button');
+    nvtBtn.type = 'button';
+    nvtBtn.className = 'nvt-btn';
+    nvtBtn.textContent = 'n.v.t.';
+    nvtBtn.onmousedown = e => e.preventDefault();
+
+    popup.appendChild(dateInput);
+    popup.appendChild(nvtBtn);
+
+    let outsideHandler = null;
+
+    const calIcon = document.createElement('span');
+    calIcon.className = 'status-cal-icon' + (!hasDate && !isNvt ? ' visible' : '');
+    calIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="12" rx="1.5"/><path d="M1 7h14M5 1v4M11 1v4"/></svg>';
+    calIcon.addEventListener('click', e => { e.stopPropagation(); popup.classList.contains('open') ? closePopup() : openPopup(); });
+
+    function updateDisplay(val) {
+      if (!val) {
+        display.className = 'status-date-display is-empty';
+        display.textContent = 'dd-mm-jjjj';
+        calIcon.classList.add('visible');
+      } else if (val === 'n.v.t.') {
+        display.className = 'status-date-display is-nvt';
+        display.textContent = 'n.v.t.';
+        calIcon.classList.remove('visible');
+      } else {
+        const d = new Date(val);
+        display.className = 'status-date-display';
+        display.textContent = isNaN(d.getTime()) ? val : d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        calIcon.classList.remove('visible');
+      }
+    }
+
+    function closePopup() {
+      popup.classList.remove('open');
+      if (outsideHandler) { document.removeEventListener('click', outsideHandler); outsideHandler = null; }
+    }
+
+    function openPopup() {
+      popup.classList.add('open');
+      dateInput.focus();
+      try { if (dateInput.showPicker) dateInput.showPicker(); } catch(e) {}
+      outsideHandler = e => { if (!popup.contains(e.target) && e.target !== display) closePopup(); };
+      setTimeout(() => document.addEventListener('click', outsideHandler), 0);
+    }
+
+    display.addEventListener('click', e => {
+      e.stopPropagation();
+      popup.classList.contains('open') ? closePopup() : openPopup();
+    });
+
+    dateInput.addEventListener('change', () => {
+      const val = dateInput.value || null;
+      saveStatusField(key, val);
+      updateDisplay(val);
+      closePopup();
+    });
+
+    nvtBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      saveStatusField(key, 'n.v.t.');
+      updateDisplay('n.v.t.');
+      closePopup();
+    });
+
+    wrap.appendChild(display);
+    wrap.appendChild(calIcon);
+    wrap.appendChild(popup);
+  } else if (type === 'yn') {
+    const sel = document.createElement('select');
+    sel.className = 'status-yn-select';
+    [['', '—'], ['ja', 'Ja'], ['nee', 'Nee']].forEach(([val, label]) => {
+      const o = document.createElement('option');
+      o.value = val; o.textContent = label;
+      if ((value || '') === val) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = () => saveStatusField(key, sel.value || null);
+    wrap.appendChild(sel);
+  } else if (type === 'info_status') {
+    const complete = (() => {
+      if (infoData._nvt) return true;
+      const keys = SECTIONS.slice(0, -1).flatMap(s => s.fields.map(f => f.key));
+      return keys.every(k => {
+        const d = infoData[k] || { b: 1, a: 0 };
+        return d.b !== 1 || d.a === 1;
+      });
+    })();
+    const btn = document.createElement('button');
+    btn.className = 'status-compleet-btn' + (complete ? ' complete' : '');
+    btn.textContent = complete ? '✓ Info compleet' : 'Info incompleet';
+    btn.onclick = () => { activeTab = 'klantgegevens'; renderForm(); };
+    wrap.appendChild(btn);
+  } else if (type === 'docs_status') {
+    const complete = SECTIONS[SECTIONS.length - 1].fields.every(f => {
+      const d = infoData[f.key] || { b: 0, a: 0 };
+      return d.b === d.a;
+    });
+    const btn = document.createElement('button');
+    btn.className = 'status-compleet-btn' + (complete ? ' complete' : '');
+    btn.textContent = complete ? '✓ Aktes compleet' : 'Aktes incompleet';
+    btn.onclick = () => { activeTab = 'klantgegevens'; renderForm(); };
+    wrap.appendChild(btn);
+  }
+
+  return wrap;
+}
+
+function setAllNvt() {
+  infoData._nvt = true;
+  SECTIONS.forEach(section => { section.fields.forEach(f => { infoData[f.key] = { b: 0, a: 0 }; }); });
+  renderForm();
+  scheduleSave();
+}
+
+function resetNvt() {
+  delete infoData._nvt;
+  SECTIONS.forEach(section => { section.fields.forEach(f => { infoData[f.key] = { b: 1, a: 0 }; }); });
+  renderForm();
+  scheduleSave();
+}
+
+const KLANT_FIELDS = [
+  { key: 'naam_a',       label: 'Naam A' },
+  { key: 'naam_b',       label: 'Naam B' },
+  { key: 'relatie',      label: 'Relatie' },
+  { key: 'vorm',         label: 'Vorm' },
+  { key: 'kinderen',     label: 'Kinderen' },
+  { key: 'woning',       label: 'Woning' },
+  { key: 'bedrijf',      label: 'Bedrijf' },
+];
+
+function renderForm() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '';
+
+  // ── Tab bar ──
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tab-bar';
+  [['klantgegevens', '1. Klantgegevens'], ['klantstatus', '2. Klantstatus']].forEach(([id, label]) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (activeTab === id ? ' active' : '');
+    btn.textContent = label;
+    btn.onclick = () => { activeTab = id; renderForm(); };
+    tabBar.appendChild(btn);
+  });
+  main.appendChild(tabBar);
+
+  if (activeTab === 'klantstatus') {
+    const grid = document.createElement('div');
+    grid.className = 'status-grid';
+    let firstBlock = null;
+    const activePhase = getCurrentPhaseIndex(statusData);
+    STATUS_SECTIONS.forEach((section, sIdx) => {
+      const block = document.createElement('div');
+      block.className = 'status-col-block';
+      const titleEl = document.createElement('div');
+      titleEl.id = `status-phase-title-${sIdx}`;
+      titleEl.className = 'status-section-title';
+      if (sIdx === activePhase) {
+        titleEl.style.cssText = `background:${section.color};color:white;border-radius:3px;padding:3px 6px;margin-bottom:4px;letter-spacing:0.08em;`;
+      } else {
+        titleEl.style.cssText = `border-bottom:2px solid ${section.color};color:${section.color};margin-bottom:4px;`;
+      }
+      titleEl.textContent = section.title;
+      block.appendChild(titleEl);
+      section.fields.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'status-field-row';
+        row.dataset.key = f.key;
+        if (ALARM_CHECKS[f.key] && ALARM_CHECKS[f.key](statusData)) row.classList.add('alarm');
+        const lbl = document.createElement('span');
+        lbl.className = 'status-field-label';
+        lbl.textContent = f.label;
+        row.appendChild(lbl);
+        row.appendChild(renderStatusInput(f.key, statusData[f.key], f.type));
+        block.appendChild(row);
+      });
+
+      if (sIdx === 0) {
+        firstBlock = block;
+      } else if (sIdx === 1) {
+        const leftGroup = document.createElement('div');
+        leftGroup.style.cssText = 'flex-shrink:0;display:flex;flex-direction:column;gap:16px;';
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex;gap:20px;';
+        topRow.appendChild(firstBlock);
+        topRow.appendChild(block);
+        leftGroup.appendChild(topRow);
+
+        const opmTitle = document.createElement('div');
+        opmTitle.className = 'status-section-title';
+        opmTitle.style.cssText = 'border-bottom:2px solid #4a4a4a;color:#4a4a4a;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;';
+        const opmTitleLabel = document.createElement('span');
+        opmTitleLabel.textContent = 'Opmerkingen';
+        const opmTs = document.createElement('sub');
+        opmTs.style.cssText = 'font-size:0.78rem;font-family:"Fraunces",serif;font-weight:600;color:#4a4a4a;letter-spacing:0.08em;text-transform:uppercase;line-height:1;padding-bottom:2px;';
+        const tsVal = statusData.opmerkingen_gewijzigd;
+        opmTs.textContent = tsVal ? formatOpmTs(tsVal) : '—';
+        opmTitle.appendChild(opmTitleLabel);
+        opmTitle.appendChild(opmTs);
+        const opmArea = document.createElement('textarea');
+        opmArea.className = 'status-opmerkingen';
+        opmArea.value = statusData.opmerkingen || '';
+        opmArea.oninput = () => {
+          const ts = new Date().toISOString();
+          opmTs.textContent = formatOpmTs(ts);
+          saveStatusField('opmerkingen', opmArea.value || null);
+          saveStatusField('opmerkingen_gewijzigd', ts);
+        };
+        const opmBlock = document.createElement('div');
+        opmBlock.appendChild(opmTitle);
+        opmBlock.appendChild(opmArea);
+        leftGroup.appendChild(opmBlock);
+
+        grid.appendChild(leftGroup);
+      } else {
+        grid.appendChild(block);
+      }
+    });
+    main.appendChild(grid);
+    main.style.display = 'block';
+    return;
+  }
+
+  const naamA = (infoData._klant && infoData._klant.naam_a) || 'Partner 1';
+  const naamB = (infoData._klant && infoData._klant.naam_b) || 'Partner 2';
+
+  if (infoData._nvt) {
+    const banner = document.createElement('div');
+    banner.className = 'nvt-banner';
+    banner.style.cssText = 'background:var(--green);color:white;padding:10px 16px;border-radius:4px;font-size:0.73rem;display:flex;align-items:center;gap:16px;margin-bottom:28px;';
+    banner.innerHTML = '<span>Documenten niet van toepassing — Info knop staat op groen.</span>';
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'Reset';
+    resetBtn.style.cssText = 'font-family:"DM Mono",monospace;font-size:0.68rem;padding:3px 10px;border:1.5px solid white;border-radius:3px;background:transparent;color:white;cursor:pointer;margin-left:auto;';
+    resetBtn.onclick = resetNvt;
+    banner.appendChild(resetBtn);
+    main.appendChild(banner);
+  }
+
+  const layout = document.createElement('div');
+  layout.style.cssText = 'display:flex;gap:48px;align-items:flex-start;width:fit-content;';
+
+  // ── LEFT: Klantgegevens ──
+  const leftCol = document.createElement('div');
+  leftCol.style.cssText = 'flex-shrink:0;width:448px;';
+
+  const klantSection = document.createElement('div');
+  klantSection.className = 'section';
+
+  const klantTitleRow = document.createElement('div');
+  klantTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;';
+  const klantTitleText = document.createElement('div');
+  klantTitleText.className = 'section-title';
+  klantTitleText.style.cssText = 'border:none;padding:0;margin:0;';
+  klantTitleText.textContent = 'Klantgegevens';
+  klantTitleRow.appendChild(klantTitleText);
+  klantSection.appendChild(klantTitleRow);
+
+  const klantTable = document.createElement('table');
+  klantTable.className = 'field-table';
+  klantTable.innerHTML = '<thead><tr><th style="width:25%">Veld</th><th style="text-align:left;">Waarde</th><th style="text-align:center;width:1px;white-space:nowrap;padding:8px 4px;">Toevoegingen</th></tr></thead>';
+  const klantTbody = document.createElement('tbody');
+  const klant = infoData._klant || {};
+  const inputStyle = 'width:100%;border:none;outline:none;font-family:"DM Mono",monospace;font-size:0.73rem;background:transparent;padding:0;color:var(--ink);';
+
+  const RELATIE_OPTIONS = ['', 'Gehuwd', 'Geregistreerd Partner', 'Samenlevers', 'Reeds gescheiden'];
+  const VORM_MAP = {
+    'Gehuwd':                ['GVG', 'HVW'],
+    'Geregistreerd Partner': ['GVG', 'Partner VW'],
+    'Samenlevers':           ['Contract (SW)', 'Geen contract (SW)'],
+    'Reeds gescheiden':      ['n.v.t.'],
+  };
+  const selectStyle = inputStyle + '-webkit-appearance:none;appearance:none;cursor:pointer;';
+
+  let vormSelect = null;
+
+  function buildVormOptions(sel, relatieVal) {
+    const opts = VORM_MAP[relatieVal] || [];
+    const prev = infoData._klant ? infoData._klant['vorm'] || '' : '';
+    sel.innerHTML = '';
+    const empty = document.createElement('option');
+    empty.value = ''; empty.textContent = '—'; sel.appendChild(empty);
+    opts.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      if (prev === opt) o.selected = true;
+      sel.appendChild(o);
+    });
+    if (opts.length === 1) sel.value = opts[0];
+  }
+
+  function applyBedrijfRules(bedrijfVal) {
+    const bedrijfFields = SECTIONS.find(s => s.title === 'Zakelijk').fields;
+    const b = (bedrijfVal === 'Nee') ? 0 : 1;
+    bedrijfFields.forEach(f => {
+      if (!infoData[f.key]) infoData[f.key] = { b: 1, a: 0 };
+      infoData[f.key].b = b;
+    });
+  }
+
+  function applyWoningRules(woningVal) {
+    const woningFields = SECTIONS.find(s => s.title === 'Woning').fields;
+    const b = (woningVal === 'Nee') ? 0 : 1;
+    woningFields.forEach(f => {
+      if (!infoData[f.key]) infoData[f.key] = { b: 1, a: 0 };
+      infoData[f.key].b = b;
+    });
+  }
+
+  function applyKinderenRules(kinderenVal) {
+    const legB = (kinderenVal === 'Geen') ? 0 : 1;
+    if (!infoData['leg_kinderen']) infoData['leg_kinderen'] = { b: 1, a: 0 };
+    infoData['leg_kinderen'].b = legB;
+    if (!infoData['geboorteaktes']) infoData['geboorteaktes'] = { b: 1, a: 0 };
+    infoData['geboorteaktes'].b = legB;
+    if (!infoData['kindverklaringen']) infoData['kindverklaringen'] = { b: 0, a: 0 };
+    infoData['kindverklaringen'].b = (kinderenVal === 'Kinderen >8') ? 1 : 0;
+  }
+
+  function applyVormRules(vormVal) {
+    const b = ['GVG', 'Geen contract (SW)', 'n.v.t.'].includes(vormVal) ? 0 : 1;
+    if (!infoData['huwelijkse_vw']) infoData['huwelijkse_vw'] = { b: 1, a: 0 };
+    infoData['huwelijkse_vw'].b = b;
+    if (!infoData['huwelijksakte']) infoData['huwelijksakte'] = { b: 1, a: 0 };
+    infoData['huwelijksakte'].b = b;
+  }
+
+  KLANT_FIELDS.forEach(f => {
+    const tr = document.createElement('tr');
+    const labelTd = document.createElement('td');
+    labelTd.textContent = f.label;
+    const valTd = document.createElement('td');
+    valTd.style.cssText = 'text-align:left;';
+
+    let control;
+    if (f.key === 'relatie') {
+      control = document.createElement('select');
+      control.style.cssText = selectStyle;
+      RELATIE_OPTIONS.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt || '—';
+        if ((klant['relatie'] || '') === opt) o.selected = true;
+        control.appendChild(o);
+      });
+      control.onchange = () => {
+        if (!infoData._klant) infoData._klant = {};
+        infoData._klant['relatie'] = control.value;
+        if (vormSelect) {
+          buildVormOptions(vormSelect, control.value);
+          infoData._klant['vorm'] = vormSelect.value;
+          applyVormRules(vormSelect.value);
+        }
+        scheduleSave();
+        renderForm();
+      };
+    } else if (f.key === 'vorm') {
+      control = document.createElement('select');
+      control.style.cssText = selectStyle;
+      buildVormOptions(control, klant['relatie'] || '');
+      vormSelect = control;
+      control.onchange = () => {
+        if (!infoData._klant) infoData._klant = {};
+        infoData._klant['vorm'] = control.value;
+        applyVormRules(control.value);
+        scheduleSave();
+        renderForm();
+      };
+    } else if (f.key === 'bedrijf') {
+      control = document.createElement('select');
+      control.style.cssText = selectStyle;
+      ['', 'Ja', 'Nee'].forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt || '—';
+        if ((klant['bedrijf'] || '') === opt) o.selected = true;
+        control.appendChild(o);
+      });
+      control.onchange = () => {
+        if (!infoData._klant) infoData._klant = {};
+        infoData._klant['bedrijf'] = control.value;
+        applyBedrijfRules(control.value);
+        scheduleSave();
+        renderForm();
+      };
+    } else if (f.key === 'woning') {
+      control = document.createElement('select');
+      control.style.cssText = selectStyle;
+      ['', 'Ja', 'Nee'].forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt || '—';
+        if ((klant['woning'] || '') === opt) o.selected = true;
+        control.appendChild(o);
+      });
+      control.onchange = () => {
+        if (!infoData._klant) infoData._klant = {};
+        infoData._klant['woning'] = control.value;
+        applyWoningRules(control.value);
+        scheduleSave();
+        renderForm();
+      };
+    } else if (f.key === 'kinderen') {
+      control = document.createElement('select');
+      control.style.cssText = selectStyle;
+      ['', 'Geen', 'Kinderen <8', 'Kinderen >8'].forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt; o.textContent = opt || '—';
+        if ((klant['kinderen'] || '') === opt) o.selected = true;
+        control.appendChild(o);
+      });
+      control.onchange = () => {
+        if (!infoData._klant) infoData._klant = {};
+        infoData._klant['kinderen'] = control.value;
+        applyKinderenRules(control.value);
+        scheduleSave();
+        renderForm();
+      };
+    } else {
+      control = document.createElement('input');
+      control.type = 'text';
+      control.value = klant[f.key] || '';
+      control.style.cssText = inputStyle;
+      control.oninput = () => {
+        if (!infoData._klant) infoData._klant = {};
+        infoData._klant[f.key] = control.value;
+        scheduleSave();
+      };
+    }
+
+    valTd.appendChild(control);
+    tr.appendChild(labelTd);
+    tr.appendChild(valTd);
+
+    const toevTd = document.createElement('td');
+    toevTd.style.cssText = 'text-align:center;width:1px;white-space:nowrap;padding:4px 4px;';
+    if (f.key === 'naam_a' || f.key === 'naam_b') {
+      const statusKey = f.key === 'naam_a' ? 'toevoeging_a' : 'toevoeging_b';
+      const toevBtn = document.createElement('button');
+      const updateToevBtn = () => {
+        const v = statusData[statusKey] === 1 ? 1 : 0;
+        toevBtn.className = 'toggle' + (v === 1 ? ' on' : '');
+        toevBtn.textContent = v === 1 ? '1' : '0';
+      };
+      updateToevBtn();
+      toevBtn.onclick = () => {
+        saveStatusField(statusKey, statusData[statusKey] === 1 ? 0 : 1);
+        updateToevBtn();
+        propagateToevoegingNvt();
+      };
+      toevTd.appendChild(toevBtn);
+    }
+    tr.appendChild(toevTd);
+    klantTbody.appendChild(tr);
+  });
+
+  klantTable.appendChild(klantTbody);
+  klantSection.appendChild(klantTable);
+  leftCol.appendChild(klantSection);
+
+  // ── Dienstverlening ──
+  const dienstvSection = document.createElement('div');
+  dienstvSection.className = 'section';
+  dienstvSection.style.marginTop = '28px';
+
+  const dienstvTitleRow = document.createElement('div');
+  dienstvTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;';
+  const dienstvTitleText = document.createElement('div');
+  dienstvTitleText.className = 'section-title';
+  dienstvTitleText.style.cssText = 'border:none;padding:0;margin:0;';
+  dienstvTitleText.textContent = 'Dienstverlening';
+  dienstvTitleRow.appendChild(dienstvTitleText);
+  dienstvSection.appendChild(dienstvTitleRow);
+
+  const dienstvTable = document.createElement('table');
+  dienstvTable.className = 'field-table';
+  dienstvTable.innerHTML = '<thead><tr><th style="width:25%">Veld</th><th style="width:75%;text-align:left;">Waarde</th></tr></thead>';
+  const dienstvTbody = document.createElement('tbody');
+  const dienstvData = infoData._dienstverlening || {};
+
+  [
+    { key: 'type',      label: 'Type',      options: ['', 'Scheiding', 'Herziening OP', 'Herberekening', 'Scheiden of Blijven'] },
+    { key: 'rechtbank', label: 'Via rechtbank', options: ['', 'Ja', 'Nee'] },
+  ].forEach(f => {
+    const tr = document.createElement('tr');
+    const labelTd = document.createElement('td');
+    labelTd.textContent = f.label;
+    const valTd = document.createElement('td');
+    valTd.style.cssText = 'text-align:left;';
+    const sel = document.createElement('select');
+    sel.style.cssText = selectStyle;
+    f.options.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt || '—';
+      if ((dienstvData[f.key] || '') === opt) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = () => {
+      if (!infoData._dienstverlening) infoData._dienstverlening = {};
+      infoData._dienstverlening[f.key] = sel.value;
+      scheduleSave();
+    };
+    valTd.appendChild(sel);
+    tr.appendChild(labelTd);
+    tr.appendChild(valTd);
+    dienstvTbody.appendChild(tr);
+  });
+
+  dienstvTable.appendChild(dienstvTbody);
+  dienstvSection.appendChild(dienstvTable);
+  leftCol.appendChild(dienstvSection);
+
+  layout.appendChild(leftCol);
+
+  // ── MIDDLE: Persoonsgegevens ──
+  const midCol = document.createElement('div');
+  midCol.style.cssText = 'flex:1;';
+
+  // ── RIGHT: Woning + Zakelijk ──
+  const rightCol = document.createElement('div');
+  rightCol.style.cssText = 'flex-shrink:0;';
+
+  function buildSectionDiv(section) {
+    const div = document.createElement('div');
+    div.className = 'section';
+
+    const titleRow = document.createElement('div');
+    titleRow.style.cssText = 'display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;';
+    const title = document.createElement('div');
+    title.className = 'section-title';
+    title.style.cssText = 'border:none;padding:0;margin:0;';
+    title.textContent = section.title;
+    titleRow.appendChild(title);
+    if (section.title === 'Persoonsgegevens') {
+      const btnStyle = 'font-family:"DM Mono",monospace;font-size:0.68rem;padding:4px 12px;border:1.5px solid var(--ink);border-radius:3px;background:transparent;color:var(--ink);cursor:pointer;letter-spacing:0.05em;';
+      const b1 = document.createElement('button');
+      b1.style.cssText = btnStyle;
+      b1.textContent = 'Benodigd alles 1';
+      b1.onclick = () => setAllBenodigd(1);
+      const b0 = document.createElement('button');
+      b0.style.cssText = btnStyle;
+      b0.textContent = 'Benodigd alles 0';
+      b0.onclick = () => setAllBenodigd(0);
+      const bNvt = document.createElement('button');
+      bNvt.style.cssText = btnStyle + 'border-color:var(--green);color:var(--green);';
+      bNvt.textContent = 'Alles n.v.t.';
+      bNvt.onclick = () => setAllNvt();
+      titleRow.appendChild(b1);
+      titleRow.appendChild(b0);
+      titleRow.appendChild(bNvt);
+    }
+    div.appendChild(titleRow);
+
+    const table = document.createElement('table');
+    table.className = 'field-table' + (section.title === 'Rechtbank' ? ' rechtbank-table' : '');
+    table.innerHTML = '<thead><tr><th>Document</th><th>Benodigd</th><th>Aanwezig</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+
+    section.fields.forEach(f => {
+      const d = infoData[f.key] || { b: 1, a: 0 };
+      const tr = document.createElement('tr');
+      const nameTd = document.createElement('td');
+      nameTd.textContent = f.label.replace(/partner 1/i, naamA).replace(/partner 2/i, naamB);
+      tr.appendChild(nameTd);
+
+      ['b', 'a'].forEach(field => {
+        const td = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.className = 'toggle' + (d[field] === 1 ? ' on' : '');
+        btn.textContent = d[field] === 1 ? '1' : '0';
+        btn.onclick = () => {
+          delete infoData._nvt;
+          if (!infoData[f.key]) infoData[f.key] = { b: d.b, a: d.a };
+          infoData[f.key][field] = infoData[f.key][field] === 1 ? 0 : 1;
+          const val = infoData[f.key][field];
+          btn.className = 'toggle' + (val === 1 ? ' on' : '');
+          btn.textContent = val === 1 ? '1' : '0';
+          if (document.querySelector('#mainContent .nvt-banner')) renderForm();
+          scheduleSave();
+        };
+        td.appendChild(btn);
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    div.appendChild(table);
+    return div;
+  }
+
+  SECTIONS.forEach(section => {
+    const div = buildSectionDiv(section);
+    if (section.title === 'Persoonsgegevens') {
+      midCol.appendChild(div);
+    } else {
+      rightCol.appendChild(div);
+    }
+  });
+
+  layout.appendChild(midCol);
+  layout.appendChild(rightCol);
+  main.appendChild(layout);
+  main.style.display = 'block';
+
+  // Sync title row heights and first-column widths after render
+  requestAnimationFrame(() => {
+    const leftTitleRow  = leftCol.querySelector('div[style*="border-bottom"]');
+    const midTitleRow   = midCol.querySelector('div[style*="border-bottom"]');
+    const rightTitleRow = rightCol.querySelector('div[style*="border-bottom"]');
+    const titleRows = [leftTitleRow, midTitleRow, rightTitleRow].filter(Boolean);
+    if (titleRows.length > 0) {
+      const h = Math.max(...titleRows.map(r => r.offsetHeight));
+      titleRows.forEach(r => r.style.minHeight = h + 'px');
+    }
+
+    // Make first column the same width across all section tables
+    const allTables = [...midCol.querySelectorAll('.field-table'), ...rightCol.querySelectorAll('.field-table')];
+    let maxW = 0;
+    allTables.forEach(table => {
+      table.querySelectorAll('tbody td:first-child').forEach(td => {
+        td.style.whiteSpace = 'nowrap';
+        maxW = Math.max(maxW, td.offsetWidth);
+      });
+    });
+    if (maxW > 0) {
+      allTables.forEach(table => {
+        const th = table.querySelector('thead th:first-child');
+        if (th) th.style.minWidth = maxW + 'px';
+        table.querySelectorAll('tbody td:first-child').forEach(td => {
+          td.style.minWidth = maxW + 'px';
+        });
+      });
+    }
+  });
+}
+
+function setAllBenodigd(val) {
+  delete infoData._nvt;
+  SECTIONS.forEach(section => {
+    section.fields.forEach(f => {
+      if (!infoData[f.key]) infoData[f.key] = { b: 0, a: 0 };
+      infoData[f.key].b = val;
+    });
+  });
+  renderForm();
+  scheduleSave();
+}
+
+async function init() {
+  if (!dossierId) {
+    document.getElementById('loadingOverlay').innerHTML = '<p>Geen dossier opgegeven.</p>';
+    return;
+  }
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(), 5000));
+  try {
+    const { data: { session } } = await Promise.race([db.auth.getSession(), timeout]);
+    if (!session) { window.location.href = 'index.html'; return; }
+
+    const { data, error } = await db.from('dossiers').select('*').eq('id', dossierId).single();
+    if (error || !data) { document.getElementById('loadingOverlay').innerHTML = '<p>Dossier niet gevonden.</p>'; return; }
+
+    document.getElementById('klantName').textContent = data.klant || '—';
+    document.title = `Gegevens – ${data.klant || 'Dossier'}`;
+    infoData = data.info_data ? JSON.parse(data.info_data) : {};
+    statusData = data;
+    alarmSettings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
+
+    renderForm();
+    document.getElementById('loadingOverlay').style.display = 'none';
+  } catch (e) {
+    window.location.href = 'index.html';
+  }
+}
+
+let deleteTimer = null;
+
+function openDeleteModal() {
+  document.getElementById('deleteModalName').textContent = document.getElementById('klantName').textContent;
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('open');
+}
+function confirmDelete() {
+  closeDeleteModal();
+  document.getElementById('undoToast').classList.add('show');
+  deleteTimer = setTimeout(async () => {
+    document.getElementById('undoToast').classList.remove('show');
+    const { error } = await db.from('dossiers').delete().eq('id', dossierId);
+    if (error) { alert('Verwijderen mislukt: ' + error.message); return; }
+    window.location.href = 'index.html';
+  }, 5000);
+}
+function undoDelete() {
+  clearTimeout(deleteTimer);
+  deleteTimer = null;
+  document.getElementById('undoToast').classList.remove('show');
+}
+document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+
+window.addEventListener('pageshow', e => { if (e.persisted) window.location.reload(); });
+init();
+</script>
+</body>
+</html>
