@@ -1,0 +1,5 @@
+# Temp editor files
+*.tmp.*
+
+# Sensitive
+MyToken.txt

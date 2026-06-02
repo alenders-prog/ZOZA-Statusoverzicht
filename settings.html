@@ -4,11 +4,140 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Instellingen</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  #alarmTable td input { display: block !important; }
+/* ── Override: inputs in alarm table always visible ── */
+#alarmTable td input { display: block !important; }
+
+/* ── Settings-specific layout ── */
+.settings-body {
+  max-width: 680px;
+  margin: 48px auto;
+  padding: 0 24px;
+}
+.settings-card {
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  overflow: hidden;
+}
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px 16px;
+  border-bottom: 2px solid var(--orange);
+}
+.settings-section-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--orange-dark);
+}
+.settings-section-desc {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--grey);
+  margin-left: auto;
+}
+#alarmTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+#alarmTable thead th {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+  border-bottom: 1px solid var(--orange-mid);
+  text-align: left;
+}
+#alarmTable thead th.th-val {
+  text-align: right;
+  width: 180px;
+}
+#alarmTable tbody tr {
+  border-bottom: 1px solid var(--grey-rule);
+  transition: background 0.1s;
+}
+#alarmTable tbody tr:last-child { border-bottom: none; }
+#alarmTable tbody tr:hover { background: var(--orange-soft); }
+#alarmTable tbody td {
+  padding: 10px 24px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+#alarmTable tbody td.td-val { text-align: right; }
+.days-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.days-input {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.83rem;
+  font-weight: 700;
+  width: 80px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--grey-rule);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  outline: none;
+  text-align: right;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+.days-input::-webkit-outer-spin-button,
+.days-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.days-input:focus { border-color: var(--orange); }
+.unit-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--grey);
+  white-space: nowrap;
+}
+.save-bar {
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  border-top: 1px solid var(--grey-rule);
+  background: var(--grey-light);
+}
+.save-note {
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: var(--grey);
+}
+#saveStatus {
+  font-size: 0.70rem;
+  font-weight: 700;
+  color: var(--green);
+}
+#dbError {
+  display: none;
+  background: #FDECEA;
+  border: 1px solid #F5A8A0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #8B1A10;
+  white-space: pre-wrap;
+}
 </style>
 </head>
 <body>
@@ -17,30 +146,42 @@
 
 <div id="appScreen">
   <header>
-    <h1>Instellingen</h1>
-    <span class="subtitle">Statusoverzicht</span>
-    <div class="header-actions">
-      <span id="userEmail"></span>
-      <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Terug</button>
+    <div class="header-inner">
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+      <h1>Instellingen</h1>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Terug</button>
+      </div>
     </div>
   </header>
 
-  <div style="max-width:640px;margin:48px auto;padding:0 24px;">
-
-    <div id="dbError" style="display:none;background:#fdecea;border:1px solid #f5a8a0;border-radius:4px;padding:10px 14px;font-size:0.72rem;margin-bottom:16px;color:#8b1a10;white-space:pre-wrap;"></div>
-    <div style="margin-bottom:44px;">
-      <div style="font-family:'Fraunces',serif;font-size:0.95rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;">Alarminstellingen</div>
-      <table id="alarmTable" style="width:100%;border-collapse:collapse;">
+  <div class="settings-body">
+    <div id="dbError"></div>
+    <div class="settings-card">
+      <div class="settings-section-header">
+        <span class="settings-section-title">Alarminstellingen</span>
+        <span class="settings-section-desc">Aantal dagen waarna een alarm wordt getoond</span>
+      </div>
+      <table id="alarmTable">
         <thead>
           <tr>
-            <th style="font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;background:var(--cream);color:#888;border-bottom:1px solid var(--rule);font-weight:500;text-align:left;">Naam</th>
-            <th style="font-size:0.62rem;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;background:var(--cream);color:#888;border-bottom:1px solid var(--rule);font-weight:500;text-align:left;width:160px;">Waarde (dagen)</th>
+            <th>Naam</th>
+            <th class="th-val">Waarde</th>
           </tr>
         </thead>
         <tbody id="alarmBody"></tbody>
       </table>
+      <div class="save-bar">
+        <span class="save-note">Wijzigingen worden automatisch opgeslagen</span>
+        <span id="saveStatus">● opgeslagen</span>
+      </div>
     </div>
-
   </div>
 </div>
 
@@ -51,21 +192,30 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ALARM_ROWS = [
-  { key: 'info_voor_afspraak',              label: 'Info binnen voor afspraak' },
-  { key: 'reactie_docs_teurlings',          label: 'Reactietijd toevoeging bevestigd' },
-  { key: 'reactie_klanten_concepten',       label: 'Reactietijd klanten op concepten' },
-  { key: 'reactie_teurlings_concepten',     label: 'Reactietijd advocaat op concepten' },
-  { key: 'reactie_beschikking',             label: 'Reactietijd Beschikking' },
-  { key: 'reactie_akkoord_beschikking',     label: 'Reactietijd Akkoord klanten op beschikking' },
-  { key: 'reactie_inschrijving_gemeente',   label: 'Reactietijd Inschrijving gemeente' },
-  { key: 'reactie_vergoeding_rvr',          label: 'Reactietijd Vergoeding RvR Ontvangen' },
+  { key: 'info_voor_afspraak',            label: 'Info binnen voor afspraak' },
+  { key: 'reactie_docs_teurlings',        label: 'Reactietijd toevoeging bevestigd' },
+  { key: 'reactie_klanten_concepten',     label: 'Reactietijd klanten op concepten' },
+  { key: 'reactie_teurlings_concepten',   label: 'Reactietijd advocaat op concepten' },
+  { key: 'reactie_beschikking',           label: 'Reactietijd Beschikking' },
+  { key: 'reactie_akkoord_beschikking',   label: 'Reactietijd Akkoord klanten op beschikking' },
+  { key: 'reactie_inschrijving_gemeente', label: 'Reactietijd Inschrijving gemeente' },
+  { key: 'reactie_vergoeding_rvr',        label: 'Reactietijd Vergoeding RvR Ontvangen' },
+  { key: 'pensioenverklaring_termijn',   label: 'Pensioenverklaring termijn na beschikking' },
 ];
 
 let settings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
 let saveTimer = null;
 
+function setSaveStatus(state) {
+  const el = document.getElementById('saveStatus');
+  if (state === 'saving') { el.style.color = 'var(--orange)'; el.textContent = '● opslaan...'; }
+  else if (state === 'error') { el.style.color = '#C0392B'; el.textContent = '● fout'; }
+  else { el.style.color = 'var(--green)'; el.textContent = '● opgeslagen'; }
+}
+
 function scheduleSave() {
   clearTimeout(saveTimer);
+  setSaveStatus('saving');
   saveTimer = setTimeout(saveSettings, 700);
 }
 
@@ -76,36 +226,46 @@ async function saveSettings() {
   if (error) {
     el.textContent = `Database fout bij opslaan:\n${error.message}\n(code: ${error.code})`;
     el.style.display = 'block';
+    setSaveStatus('error');
   } else {
     el.style.display = 'none';
+    setSaveStatus('saved');
   }
 }
 
 function renderAlarmTable() {
   const tbody = document.getElementById('alarmBody');
   tbody.innerHTML = '';
-  const cellStyle = 'padding:9px 12px;font-size:0.73rem;border-bottom:1px solid var(--rule);';
-  const inputStyle = 'width:80px;border:1.5px solid var(--rule);border-radius:3px;padding:5px 8px;font-family:"DM Mono",monospace;font-size:0.73rem;background:white;color:var(--ink);outline:none;text-align:right;';
 
   ALARM_ROWS.forEach(row => {
     const tr = document.createElement('tr');
 
     const nameTd = document.createElement('td');
-    nameTd.style.cssText = cellStyle;
     nameTd.textContent = row.label;
 
     const valTd = document.createElement('td');
-    valTd.style.cssText = cellStyle + 'width:160px;';
+    valTd.className = 'td-val';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'days-wrap';
+
     const valInput = document.createElement('input');
     valInput.type = 'number';
     valInput.min = '0';
     valInput.value = settings[row.key] || '';
     valInput.placeholder = '—';
-    valInput.style.cssText = inputStyle;
-    valInput.addEventListener('focus', () => valInput.style.borderColor = 'var(--accent)');
-    valInput.addEventListener('blur',  () => valInput.style.borderColor = 'var(--rule)');
+    valInput.className = 'days-input';
+    valInput.addEventListener('focus', () => valInput.style.borderColor = 'var(--orange)');
+    valInput.addEventListener('blur',  () => valInput.style.borderColor = 'var(--grey-rule)');
     valInput.oninput = () => { settings[row.key] = valInput.value; scheduleSave(); };
-    valTd.appendChild(valInput);
+
+    const unit = document.createElement('span');
+    unit.className = 'unit-label';
+    unit.textContent = 'dagen';
+
+    wrap.appendChild(valInput);
+    wrap.appendChild(unit);
+    valTd.appendChild(wrap);
 
     tr.appendChild(nameTd);
     tr.appendChild(valTd);

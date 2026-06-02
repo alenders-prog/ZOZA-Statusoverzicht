@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Statusoverzicht – Kanban</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -14,6 +14,14 @@
 
 <div id="loginScreen">
   <div class="login-card">
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+    </div>
     <h1>Statusoverzicht</h1>
     <p class="subtitle">Dossier Beheer</p>
     <label for="emailInput">E-mailadres</label>
@@ -27,12 +35,25 @@
 
 <div id="appScreen">
   <header>
-    <h1>Statusoverzicht</h1>
+    <div class="header-inner">
+    <div class="logo-wrap">
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+    </div>
+    <div class="page-title">
+      <h1>Statusoverzicht</h1>
+      <span class="header-subtitle">Dossier Beheer</span>
+    </div>
     <div class="header-actions">
       <span id="userEmail"></span>
       <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
       <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
       <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+    </div>
     </div>
   </header>
   <div class="toolbar">
@@ -45,7 +66,6 @@
       <input type="text" id="searchInput" placeholder="Zoek op klantnaam..." oninput="filterCards(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
       <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';filterCards('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
-    <button class="filter-tag active" onclick="setFilter('all', this)">Alles</button>
     <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
     <select class="kanban-sort-select toolbar-sort" onchange="setSort(this.value)">
       <option value="alarm">⚡ Alarm</option>

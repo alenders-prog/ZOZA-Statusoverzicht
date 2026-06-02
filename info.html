@@ -4,106 +4,179 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gegevens</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root {
-    --ink: #0f0e0c;
-    --paper: #f5f2ec;
-    --cream: #ede9e0;
-    --rule: #ccc9bf;
-    --accent: #c8390a;
-    --green: #1a6e4a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Mono', monospace; background: var(--paper); color: var(--ink); min-height: 100vh; }
+/* ── Info-page specific styles ── */
 
-  header { background: var(--ink); color: var(--paper); padding: 16px 32px; display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
-  .back-btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 6px 14px; border: 1.5px solid rgba(255,255,255,0.3); border-radius: 3px; color: var(--paper); background: transparent; cursor: pointer; text-decoration: none; letter-spacing: 0.06em; transition: all 0.15s; }
-  .back-btn:hover { background: rgba(255,255,255,0.1); }
-  header h1 { font-family: 'DM Mono', monospace; font-size: 0.65rem; opacity: 0.45; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; font-weight: 400; }
-  .klant-name { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
-  .sync { font-size: 0.65rem; opacity: 0.4; margin-left: auto; letter-spacing: 0.05em; }
-  .btn-delete-klant { font-family: 'DM Mono', monospace; font-size: 0.68rem; padding: 5px 12px; border: 1.5px solid #c8390a; border-radius: 3px; color: #c8390a; background: transparent; cursor: pointer; letter-spacing: 0.06em; transition: all 0.15s; white-space: nowrap; }
-  .btn-delete-klant:hover { background: #c8390a; color: white; }
-  #undoToast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--paper); padding: 10px 14px 10px 18px; border-radius: 4px; font-size: 0.72rem; display: flex; align-items: center; gap: 14px; opacity: 0; transform: translateY(10px); transition: all 0.25s; pointer-events: none; z-index: 9999; }
-  #undoToast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-  #undoBtn { font-family: 'DM Mono', monospace; font-size: 0.72rem; background: none; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 3px; color: var(--paper); padding: 3px 10px; cursor: pointer; letter-spacing: 0.04em; white-space: nowrap; }
-  #undoBtn:hover { background: rgba(255,255,255,0.15); }
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: center; justify-content: center; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: white; border-radius: 6px; padding: 32px; max-width: 400px; width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
-  .modal h2 { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 600; margin-bottom: 12px; }
-  .modal p { font-size: 0.78rem; color: #555; margin-bottom: 24px; line-height: 1.6; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-  .modal-actions .btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 7px 16px; border: 1.5px solid currentColor; border-radius: 3px; cursor: pointer; letter-spacing: 0.06em; background: transparent; }
-  .modal-actions .btn-cancel { color: #666; border-color: #ccc; }
-  .modal-actions .btn-cancel:hover { background: #f5f5f5; }
-  .modal-actions .btn-confirm-delete { background: #c8390a; border-color: #c8390a; color: white; }
-  .modal-actions .btn-confirm-delete:hover { background: #a82e06; border-color: #a82e06; }
-  .sync.saving { opacity: 1; color: #6ecfa0; }
-  .sync.error { opacity: 1; color: var(--accent); }
+main { padding: 28px 32px; display: none; }
 
-  main { max-width: none; margin: 0; padding: 28px 32px; display: none; }
+/* Klant name block in header */
+.header-klant { display: flex; flex-direction: column; justify-content: center; }
+.klant-name { font-family: 'Nunito', sans-serif; font-size: 1.25rem; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.header-subtitle { font-size: 0.68rem; font-weight: 700; color: var(--grey); letter-spacing: 0.08em; text-transform: uppercase; }
 
-  /* ── TABS ── */
-  .tab-bar { display: flex; gap: 8px; margin-bottom: 28px; }
-  .tab-btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 7px 20px; border: 1.5px solid var(--rule); border-radius: 3px; cursor: pointer; background: white; color: var(--ink); letter-spacing: 0.06em; transition: all 0.15s; }
-  .tab-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-  .tab-btn:hover:not(.active) { background: var(--cream); }
+/* Sync status */
+.sync { font-size: 0.72rem; font-weight: 700; color: var(--green); letter-spacing: 0.04em; }
+.sync.saving { color: var(--orange); }
+.sync.error  { color: #C0392B; }
 
-  /* ── STATUS TAB ── */
-  .status-grid { display: flex; flex-wrap: nowrap; gap: 20px; overflow-x: auto; padding-bottom: 16px; align-items: flex-start; }
-  .status-col-block { flex-shrink: 0; width: 280px; }
+/* Delete button */
+.btn-delete-klant {
+  font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
+  padding: 6px 16px; border: 1.5px solid #C0392B; border-radius: 20px;
+  color: #C0392B; background: transparent; cursor: pointer;
+  letter-spacing: 0.02em; transition: all 0.15s; white-space: nowrap;
+}
+.btn-delete-klant:hover { background: #C0392B; color: white; }
 
-  /* ── STATUS COLUMN ── */
-  .status-section { margin-bottom: 18px; }
-  .status-section-title { font-family: 'Fraunces', serif; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 5px; margin-bottom: 0; }
-  .status-field-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 32px; border-bottom: 1px solid var(--rule); font-size: 0.68rem; }
-  .status-field-label { color: #666; white-space: nowrap; flex-shrink: 0; }
-  .status-field-input { display: flex; align-items: center; gap: 4px; position: relative; }
-  .status-date-display { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--ink); cursor: pointer; white-space: nowrap; min-width: 88px; display: inline-block; }
-  .status-date-display:hover { color: var(--accent); }
-  .status-date-display.is-nvt { color: #999; font-style: italic; }
-  .status-date-display.is-empty { color: transparent; }
-  .status-cal-icon { color: #bbb; cursor: pointer; flex-shrink: 0; display: none; align-items: center; margin-left: 2px; }
-  .status-cal-icon.visible { display: flex; }
-  .status-cal-icon:hover { color: var(--accent); }
-  .status-picker-popup { display: none; position: absolute; right: 0; top: 100%; z-index: 200; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.18); border-radius: 3px; overflow: hidden; }
-  .status-picker-popup.open { display: flex; }
-  .status-picker-input { border: none; outline: none; font-family: 'DM Mono', monospace; font-size: 0.68rem; padding: 6px 8px; background: white; color: var(--ink); flex: 1; }
-  .status-yn-select { border: none; border-bottom: 1px solid var(--rule); outline: none; font-family: 'DM Mono', monospace; font-size: 0.68rem; background: transparent; color: var(--ink); padding: 1px 2px; cursor: pointer; -webkit-appearance: none; appearance: none; width: 60px; }
-  .status-compleet-btn { font-family: 'DM Mono', monospace; font-size: 0.62rem; padding: 3px 8px; border: 1.5px solid #2a5f8f; border-radius: 3px; color: #2a5f8f; background: #e8f0f8; cursor: pointer; letter-spacing: 0.04em; transition: all 0.15s; white-space: nowrap; }
-  .status-compleet-btn:hover { background: #2a5f8f; color: white; }
-  .status-compleet-btn.complete { background: #d5ede2; border-color: #1a6e4a; color: #1a6e4a; }
-  .status-compleet-btn.complete:hover { background: #1a6e4a; color: white; }
-  .nvt-btn { font-family: 'DM Mono', monospace; font-size: 0.65rem; padding: 5px 10px; border: none; border-left: 1px solid #ddd; cursor: pointer; background: var(--ink); color: var(--paper); white-space: nowrap; font-weight: 500; letter-spacing: 0.04em; }
-  .nvt-btn:hover { background: #2a2825; }
-  .status-field-row.alarm { background: #ffd5d5; }
-  .status-opmerkingen { width: 100%; min-height: 90px; font-family: 'DM Mono', monospace; font-size: 0.68rem; border: 1px solid var(--rule); border-radius: 2px; padding: 6px 8px; background: white; color: var(--ink); resize: vertical; outline: none; line-height: 1.5; }
-  .status-opmerkingen:focus { border-color: var(--ink); }
+/* Undo toast */
+#undoToast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--ink); color: var(--white);
+  padding: 10px 14px 10px 18px; border-radius: 20px;
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 700;
+  display: flex; align-items: center; gap: 14px;
+  opacity: 0; transform: translateY(10px);
+  transition: all 0.25s; pointer-events: none; z-index: 9999;
+}
+#undoToast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+#undoBtn {
+  font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
+  background: none; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 20px;
+  color: var(--white); padding: 3px 10px; cursor: pointer; white-space: nowrap;
+}
+#undoBtn:hover { background: rgba(255,255,255,0.15); }
 
-  .section { margin-bottom: 44px; }
-  .section-title { font-family: 'Fraunces', serif; font-size: 0.95rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 8px; border-bottom: 2px solid var(--ink); margin-bottom: 0; }
+/* Delete modal confirm button (overrides style.css .btn) */
+.btn-confirm-delete { background: #C0392B; border-color: #C0392B; color: white; font-weight: 800; }
+.btn-confirm-delete:hover { background: #a82e06; border-color: #a82e06; color: white; }
 
-  .field-table { width: 100%; border-collapse: collapse; }
-  .field-table thead th { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 12px; background: var(--cream); color: #888; border-bottom: 1px solid var(--rule); font-weight: 500; }
-  .field-table thead th:first-child { text-align: left; }
-  .field-table thead th:not(:first-child) { text-align: center; width: 100px; }
-  .field-table tbody tr { border-bottom: 1px solid var(--rule); transition: background 0.1s; }
-  .field-table tbody tr:hover { background: #faf8f4; }
-  .field-table tbody td { padding: 9px 12px; font-size: 0.73rem; }
-  .field-table tbody td:not(:first-child) { text-align: center; }
+/* Tabs */
+.tab-bar { display: flex; gap: 8px; margin-bottom: 28px; }
+.tab-btn {
+  font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
+  padding: 8px 22px; border: 1.5px solid var(--grey-rule); border-radius: 20px;
+  cursor: pointer; background: var(--white); color: var(--grey-text);
+  letter-spacing: 0.01em; transition: all 0.15s;
+}
+.tab-btn.active { background: var(--orange); color: var(--white); border-color: var(--orange); }
+.tab-btn:hover:not(.active) { border-color: var(--orange); color: var(--orange); }
 
-  .toggle { width: 38px; height: 28px; border: 1.5px solid var(--rule); border-radius: 3px; font-family: 'DM Mono', monospace; font-size: 0.78rem; cursor: pointer; font-weight: 500; transition: all 0.15s; background: white; color: #bbb; }
-  .toggle.on { background: var(--green); border-color: var(--green); color: white; }
-  .toggle:hover { filter: brightness(0.94); }
-  .rechtbank-table .toggle.on { background: #d4771a; border-color: #d4771a; }
+/* Status tab */
+.status-grid { display: flex; flex-wrap: nowrap; gap: 20px; overflow-x: auto; padding-bottom: 16px; align-items: flex-start; }
+.status-col-block { flex-shrink: 0; width: 280px; }
+.status-section { margin-bottom: 18px; }
+.status-section-title {
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 5px; margin-bottom: 0;
+}
+.status-field-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; height: 32px; border-bottom: 1px solid var(--grey-rule); font-size: 0.78rem;
+}
+.status-field-label { color: var(--grey-text); white-space: nowrap; flex-shrink: 0; font-weight: 600; }
+.status-field-input { display: flex; align-items: center; gap: 4px; position: relative; justify-content: flex-end; }
+.status-date-display {
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 700;
+  color: var(--ink); cursor: pointer; white-space: nowrap; min-width: 88px; display: inline-block; text-align: right;
+}
+.status-date-display:hover { color: var(--orange); }
+.status-date-display.is-nvt { color: var(--grey); font-style: italic; }
+.status-date-display.is-nvt:hover { color: var(--orange); }
+.status-date-display.is-empty { color: transparent; }
+.status-field-row.alarm .status-date-display { color: #B83518; }
+.status-cal-icon { color: var(--grey); cursor: pointer; flex-shrink: 0; display: none; align-items: center; margin-left: 2px; }
+.status-cal-icon.visible { display: flex; }
+.status-cal-icon:hover { color: var(--orange); }
+.status-picker-popup { display: none; position: absolute; right: 0; top: 100%; z-index: 200; background: var(--white); box-shadow: 0 2px 10px rgba(0,0,0,0.18); border-radius: 8px; overflow: hidden; }
+.status-picker-popup.open { display: flex; }
+.status-picker-input { border: none; outline: none; font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 600; padding: 6px 8px; background: var(--white); color: var(--ink); flex: 1; }
+.status-yn-select {
+  border: none; border-bottom: 1px solid var(--grey-rule); outline: none;
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 600;
+  background: transparent; color: var(--ink); padding: 1px 2px; cursor: pointer;
+  -webkit-appearance: none; appearance: none; width: 60px; text-align: right;
+}
+.status-compleet-btn {
+  font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
+  padding: 3px 10px; border: 1.5px solid var(--phase1); border-radius: 20px;
+  color: var(--phase1); background: var(--phase1-soft);
+  cursor: pointer; letter-spacing: 0.02em; transition: all 0.15s; white-space: nowrap;
+}
+.status-compleet-btn:hover { background: var(--phase1); color: white; }
+.status-compleet-btn.complete { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.status-compleet-btn.complete:hover { background: var(--green); color: white; }
+.nvt-btn {
+  font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
+  padding: 5px 10px; border: none; border-left: 1px solid var(--grey-rule);
+  cursor: pointer; background: var(--ink); color: var(--white);
+  white-space: nowrap; letter-spacing: 0.02em;
+}
+.nvt-btn:hover { background: #222; }
+.status-field-row { transition: background 0.1s; }
+.status-field-row:nth-child(odd) { background: #FAFAFA; }
+.status-field-row:hover { background: var(--orange-soft); }
+.status-field-row.alarm { background: #FFE8E8; }
+.status-field-row.alarm:hover { background: #FFE8E8; }
+.status-opmerkingen {
+  width: 100%; min-height: 90px;
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 600;
+  border: 1.5px solid var(--grey-rule); border-radius: 8px;
+  padding: 8px 12px; background: var(--white); color: var(--ink);
+  resize: vertical; outline: none; line-height: 1.5;
+}
+.status-opmerkingen:focus { border-color: var(--orange); }
 
-  #loadingOverlay { position: fixed; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 999; }
-  #loadingOverlay p { font-size: 0.75rem; opacity: 0.5; letter-spacing: 0.08em; }
-  .spinner { width: 28px; height: 28px; border: 2px solid var(--rule); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* Data sections (klantgegevens tab) */
+.section { margin-bottom: 44px; }
+.section-title {
+  font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding-bottom: 8px; border-bottom: 2px solid var(--orange);
+  margin-bottom: 0; color: var(--orange-dark);
+}
+.field-table { width: 100%; border-collapse: collapse; }
+.field-table thead th {
+  font-family: 'Nunito', sans-serif; font-size: 0.68rem; font-weight: 800;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 10px 12px; background: var(--orange-soft);
+  color: var(--orange-dark); border-bottom: 1px solid var(--orange-mid);
+}
+.field-table thead th:first-child { text-align: left; }
+.field-table thead th:not(:first-child) { text-align: center; width: 100px; }
+.field-table tbody tr { border-bottom: 1px solid var(--grey-rule); transition: background 0.1s; }
+.field-table tbody tr:hover { background: var(--orange-soft); }
+.field-table tbody td { padding: 9px 12px; font-family: 'Nunito', sans-serif; font-size: 0.83rem; font-weight: 600; color: var(--ink); }
+.field-table tbody td:not(:first-child) { text-align: center; }
+.toggle {
+  width: 34px; height: 24px; border: 1.5px solid var(--grey-rule); border-radius: 12px;
+  font-family: 'Nunito', sans-serif; font-size: 0.70rem; font-weight: 800;
+  cursor: pointer; transition: all 0.15s; background: var(--white); color: #bbb;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.toggle:hover { border-color: var(--grey); color: var(--grey); }
+.toggle.ben-on { background: var(--orange-mid); border-color: var(--orange); color: var(--orange-dark); }
+.toggle.on  { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.toggle.nvt { color: #ccc; font-style: italic; font-size: 0.60rem; border-style: dashed; }
+.rechtbank-table .toggle.on { background: var(--phase5-soft); border-color: var(--phase5); color: var(--phase5); }
+
+/* Override style.css inline-editing rule that hides all td inputs/selects */
+.field-table td input,
+.field-table td select { display: block !important; min-height: 0 !important; max-height: none !important; height: 24px !important; padding: 0 !important; line-height: 24px !important; text-align: left !important; color: var(--ink) !important; font-weight: 700 !important; }
+/* Label column lighter than value column, matching mockup */
+.field-table tbody td:first-child { color: var(--grey-text); font-weight: 600; }
+
+/* Back button + divider in header */
+.btn-back {
+  font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
+  padding: 5px 14px; border: 1.5px solid var(--grey-rule); border-radius: 20px;
+  background: var(--white); color: var(--grey-text); cursor: pointer;
+  text-decoration: none; white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+}
+.btn-back:hover { border-color: var(--orange); color: var(--orange); }
+.header-divider { width: 1px; height: 28px; background: var(--grey-rule); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -111,13 +184,24 @@
 <div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
 
 <header>
-  <a class="back-btn" href="index.html">← Terug</a>
-  <div>
-    <div class="klant-name" id="klantName">—</div>
-    <h1>Gegevens</h1>
+  <div class="header-inner">
+    <a class="btn-back" href="index.html">← Terug</a>
+    <div class="header-divider"></div>
+    <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+      <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+      <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+      <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+    </svg>
+    <div class="header-klant">
+      <div class="klant-name" id="klantName">—</div>
+      <div class="header-subtitle">Gegevens</div>
+    </div>
+    <div class="header-actions">
+      <span class="sync" id="syncStatus">● opgeslagen</span>
+      <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
+    </div>
   </div>
-  <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
-  <span class="sync" id="syncStatus">● opgeslagen</span>
 </header>
 
 <div class="modal-overlay" id="deleteModal">
@@ -200,44 +284,52 @@ const SECTIONS = [
   }
 ];
 
+// Fields in Persoonsgegevens excluded from all automatic rules — always set by hand
+const MANUAL_FIELDS = new Set(['testament', 'saldo_polis', 'lijfrente', 'kapitaalverz', 'schulden', 'schenkingen']);
+
+function applyDefaultBenodigd() {
+  const persoonsFields = SECTIONS.find(s => s.title === 'Persoonsgegevens').fields;
+  const woningFields   = SECTIONS.find(s => s.title === 'Woning').fields;
+  const zakelijkFields = SECTIONS.find(s => s.title === 'Zakelijk').fields;
+  persoonsFields.forEach(f => { infoData[f.key] = { b: MANUAL_FIELDS.has(f.key) ? 0 : 1, a: 0 }; });
+  woningFields.forEach(f =>   { infoData[f.key] = { b: 0, a: 0 }; });
+  zakelijkFields.forEach(f =>  { infoData[f.key] = { b: 0, a: 0 }; });
+}
+
 const STATUS_SECTIONS = [
-  { title: 'Klanten 1e fase', color: '#2a5f8f', fields: [
-    { key: 'aangevraagd',  label: 'Toevoeging aangevraagd', type: 'date' },
-    { key: 'bevestigd',    label: 'Toevoeging bevestigd',   type: 'date' },
+  { title: 'Klanten 1e fase', color: '#F7931E', fields: [
     { key: 'gemaild',       label: 'Klant gemaild',          type: 'yn'   },
-    { key: '_info',          label: 'Info',                  type: 'info_status'  },
     { key: 'actie_voor',     label: 'Actie voor',   type: 'date' },
     { key: 'eerste_concept', label: '1e concept',   type: 'date' },
   ]},
-  { title: 'Controle Advocaat', color: '#1a6e4a', fields: [
+  { title: 'Controle Advocaat', color: '#2D6AA0', fields: [
     { key: 'ter_controle', label: 'Ter controle', type: 'date' },
     { key: 'antwoord',     label: 'Antwoord',     type: 'date' },
     { key: 'naar_klanten', label: 'Verwerkt', type: 'date' },
   ]},
-  { title: 'Klanten concepten', color: '#d4771a', fields: [
+  { title: 'Klanten concepten', color: '#C47A1A', fields: [
     { key: 'afspraak',          label: 'Concepten verstuurd', type: 'date' },
     { key: 'reactie_ontvangen', label: 'Reactie ontvangen',  type: 'date' },
     { key: 'concepten_akkoord', label: 'Concepten akkoord',  type: 'date' },
   ]},
-  { title: 'Getekend', color: '#7a4f1e', fields: [
+  { title: 'Getekend', color: '#3E6E3E', fields: [
     { key: 'akkoord_klanten', label: 'Klanten getekend', type: 'date' },
-    { key: '_docs',            label: 'Aktes compleet',   type: 'docs_status' },
     { key: 'docs_verstuurd',  label: 'Verstuurd Advocaat', type: 'date' },
   ]},
-  { title: 'Advocaat', color: '#5b3d8c', fields: [
+  { title: 'Advocaat', color: '#6D4A9C', fields: [
     { key: 'belafspraak', label: 'Belafspraak', type: 'date' },
     { key: 'rechtbank',   label: 'Rechtbank',   type: 'date' },
   ]},
-  { title: 'Rechtbank', color: '#c8390a', fields: [
+  { title: 'Rechtbank', color: '#B83518', fields: [
     { key: 'beschikking',        label: 'Beschikking',       type: 'date' },
     { key: 'verstuurd_klanten',  label: 'Verstuurd klanten', type: 'date' },
     { key: 'akkoord_klanter',    label: 'Akkoord klanten',   type: 'date' },
   ]},
-  { title: 'Gemeente', color: '#4a4a4a', fields: [
+  { title: 'Gemeente', color: '#7A4E1E', fields: [
     { key: 'verstuurd_gemeente',     label: 'Verstuurd gemeente',     type: 'date' },
     { key: 'inschrijving_ontvangen', label: 'Inschrijving ontvangen', type: 'date' },
   ]},
-  { title: 'Afronding', color: '#1a6e4a', fields: [
+  { title: 'Afronding', color: '#1E7A52', fields: [
     { key: 'beeindigd',              label: 'Ingelicht en beeindigd', type: 'date' },
     { key: 'vergoeding_aangevraagd', label: 'Vergoeding aangevraagd', type: 'date' },
     { key: 'vergoeding_ontvangen',   label: 'Vergoeding ontvangen',   type: 'date' },
@@ -343,7 +435,7 @@ function refreshPhaseHighlight() {
     const el = document.getElementById(`status-phase-title-${i}`);
     if (!el) return;
     if (i === active) {
-      el.style.cssText = `background:${section.color};color:white;border-radius:3px;padding:3px 6px;margin-bottom:4px;letter-spacing:0.08em;`;
+      el.style.cssText = `background:${section.color};color:white;border-radius:6px;padding:4px 8px;margin-bottom:4px;letter-spacing:0.08em;`;
     } else {
       el.style.cssText = `border-bottom:2px solid ${section.color};color:${section.color};margin-bottom:4px;`;
     }
@@ -612,12 +704,75 @@ function renderForm() {
       titleEl.id = `status-phase-title-${sIdx}`;
       titleEl.className = 'status-section-title';
       if (sIdx === activePhase) {
-        titleEl.style.cssText = `background:${section.color};color:white;border-radius:3px;padding:3px 6px;margin-bottom:4px;letter-spacing:0.08em;`;
+        titleEl.style.cssText = `background:${section.color};color:white;border-radius:6px;padding:4px 8px;margin-bottom:4px;letter-spacing:0.08em;`;
       } else {
         titleEl.style.cssText = `border-bottom:2px solid ${section.color};color:${section.color};margin-bottom:4px;`;
       }
       titleEl.textContent = section.title;
       block.appendChild(titleEl);
+
+      // Klanten 1e fase: Info + Toevoegingen button row above the field rows
+      if (sIdx === 0) {
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;padding:5px 0 8px;border-bottom:1px solid var(--grey-rule);margin-bottom:2px;';
+
+        const infoComplete = (() => {
+          if (infoData._nvt) return true;
+          return SECTIONS.slice(0, -1).flatMap(s => s.fields.map(f => f.key)).every(k => {
+            const d = infoData[k] || { b: 1, a: 0 };
+            return d.b !== 1 || d.a === 1;
+          });
+        })();
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'card-status-btn' + (infoComplete ? ' complete' : '');
+        infoBtn.style.cssText = 'flex:1;min-width:0;text-align:center;';
+        infoBtn.textContent = infoComplete ? '✓ Info' : 'Info';
+        infoBtn.onclick = () => { activeTab = 'klantgegevens'; renderForm(); };
+        btnRow.appendChild(infoBtn);
+
+        const toevNvt = (statusData.toevoeging_a ?? 0) === 0 && (statusData.toevoeging_b ?? 0) === 0;
+        if (!toevNvt) {
+          const toevDone = !!(statusData.bevestigd && statusData.bevestigd !== 'n.v.t.');
+          const toevAlarm = ALARM_CHECKS.bevestigd && ALARM_CHECKS.bevestigd(statusData);
+          const toevBtn = document.createElement('a');
+          toevBtn.className = 'card-status-btn' + (toevDone ? ' complete' : toevAlarm ? ' urgent' : '');
+          toevBtn.style.cssText = 'flex:1;min-width:0;text-align:center;';
+          toevBtn.textContent = toevDone ? '✓ Toevoegingen' : 'Toevoegingen';
+          toevBtn.href = `toevoegingen.html?id=${dossierId}`;
+          btnRow.appendChild(toevBtn);
+        }
+
+        block.appendChild(btnRow);
+      }
+
+      // Getekend: Aktes button row above the field rows
+      if (section.title === 'Getekend') {
+        const rechtbankKeys = SECTIONS[SECTIONS.length - 1].fields;
+        const allNvt = infoData._nvt || rechtbankKeys.every(f => { const d = infoData[f.key]; return d && d.b === 0 && d.a === 0; });
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;padding:5px 0 8px;border-bottom:1px solid var(--grey-rule);margin-bottom:2px;';
+        if (allNvt) {
+          btnRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:5px 0 8px;border-bottom:1px solid var(--grey-rule);margin-bottom:2px;font-size:0.78rem;';
+          const nvtLbl = document.createElement('span');
+          nvtLbl.className = 'status-field-label';
+          nvtLbl.textContent = 'Aktes';
+          const nvtVal = document.createElement('span');
+          nvtVal.style.cssText = 'color:var(--grey);font-style:italic;font-size:0.78rem;font-weight:600;';
+          nvtVal.textContent = 'n.v.t.';
+          btnRow.appendChild(nvtLbl);
+          btnRow.appendChild(nvtVal);
+        } else {
+          const docsComplete = rechtbankKeys.every(f => { const d = infoData[f.key] || { b: 0, a: 0 }; return d.b === d.a; });
+          const aktesBtn = document.createElement('button');
+          aktesBtn.className = 'card-status-btn' + (docsComplete ? ' complete' : '');
+          aktesBtn.style.cssText = 'flex:1;min-width:0;text-align:center;';
+          aktesBtn.textContent = docsComplete ? '✓ Aktes' : 'Aktes';
+          aktesBtn.onclick = () => { activeTab = 'klantgegevens'; renderForm(); };
+          btnRow.appendChild(aktesBtn);
+        }
+        block.appendChild(btnRow);
+      }
+
       section.fields.forEach(f => {
         const row = document.createElement('div');
         row.className = 'status-field-row';
@@ -644,11 +799,11 @@ function renderForm() {
 
         const opmTitle = document.createElement('div');
         opmTitle.className = 'status-section-title';
-        opmTitle.style.cssText = 'border-bottom:2px solid #4a4a4a;color:#4a4a4a;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;';
+        opmTitle.style.cssText = 'border-bottom:2px solid var(--grey-text);color:var(--grey-text);margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;';
         const opmTitleLabel = document.createElement('span');
         opmTitleLabel.textContent = 'Opmerkingen';
         const opmTs = document.createElement('sub');
-        opmTs.style.cssText = 'font-size:0.78rem;font-family:"Fraunces",serif;font-weight:600;color:#4a4a4a;letter-spacing:0.08em;text-transform:uppercase;line-height:1;padding-bottom:2px;';
+        opmTs.style.cssText = 'font-size:0.68rem;font-family:"Nunito",sans-serif;font-weight:700;color:var(--grey);letter-spacing:0.06em;text-transform:uppercase;line-height:1;padding-bottom:2px;';
         const tsVal = statusData.opmerkingen_gewijzigd;
         opmTs.textContent = tsVal ? formatOpmTs(tsVal) : '—';
         opmTitle.appendChild(opmTitleLabel);
@@ -683,11 +838,11 @@ function renderForm() {
   if (infoData._nvt) {
     const banner = document.createElement('div');
     banner.className = 'nvt-banner';
-    banner.style.cssText = 'background:var(--green);color:white;padding:10px 16px;border-radius:4px;font-size:0.73rem;display:flex;align-items:center;gap:16px;margin-bottom:28px;';
+    banner.style.cssText = 'background:var(--green);color:white;padding:10px 16px;border-radius:8px;font-size:0.83rem;font-family:"Nunito",sans-serif;font-weight:700;display:flex;align-items:center;gap:16px;margin-bottom:28px;';
     banner.innerHTML = '<span>Documenten niet van toepassing — Info knop staat op groen.</span>';
     const resetBtn = document.createElement('button');
     resetBtn.textContent = 'Reset';
-    resetBtn.style.cssText = 'font-family:"DM Mono",monospace;font-size:0.68rem;padding:3px 10px;border:1.5px solid white;border-radius:3px;background:transparent;color:white;cursor:pointer;margin-left:auto;';
+    resetBtn.style.cssText = 'font-family:"Nunito",sans-serif;font-size:0.72rem;font-weight:700;padding:4px 14px;border:1.5px solid white;border-radius:20px;background:transparent;color:white;cursor:pointer;margin-left:auto;';
     resetBtn.onclick = resetNvt;
     banner.appendChild(resetBtn);
     main.appendChild(banner);
@@ -704,7 +859,7 @@ function renderForm() {
   klantSection.className = 'section';
 
   const klantTitleRow = document.createElement('div');
-  klantTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;';
+  klantTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--orange);margin-bottom:0;';
   const klantTitleText = document.createElement('div');
   klantTitleText.className = 'section-title';
   klantTitleText.style.cssText = 'border:none;padding:0;margin:0;';
@@ -717,7 +872,7 @@ function renderForm() {
   klantTable.innerHTML = '<thead><tr><th style="width:25%">Veld</th><th style="text-align:left;">Waarde</th><th style="text-align:center;width:1px;white-space:nowrap;padding:8px 4px;">Toevoegingen</th></tr></thead>';
   const klantTbody = document.createElement('tbody');
   const klant = infoData._klant || {};
-  const inputStyle = 'width:100%;border:none;outline:none;font-family:"DM Mono",monospace;font-size:0.73rem;background:transparent;padding:0;color:var(--ink);';
+  const inputStyle = 'width:100%;border:none;outline:none;font-family:"Nunito",sans-serif;font-size:0.83rem;font-weight:700;background:transparent;padding:0;color:var(--ink);';
 
   const RELATIE_OPTIONS = ['', 'Gehuwd', 'Geregistreerd Partner', 'Samenlevers', 'Reeds gescheiden'];
   const VORM_MAP = {
@@ -779,6 +934,78 @@ function renderForm() {
     infoData['huwelijkse_vw'].b = b;
     if (!infoData['huwelijksakte']) infoData['huwelijksakte'] = { b: 1, a: 0 };
     infoData['huwelijksakte'].b = b;
+  }
+
+  function applyTypeRules(typeVal) {
+    const persoonsFields  = SECTIONS.find(s => s.title === 'Persoonsgegevens').fields;
+    const woningFields    = SECTIONS.find(s => s.title === 'Woning').fields;
+    const zakelijkFields  = SECTIONS.find(s => s.title === 'Zakelijk').fields;
+    const rechtbankFields = SECTIONS.find(s => s.title === 'Rechtbank').fields;
+    const klant = infoData._klant || {};
+    if (!infoData._dienstverlening) infoData._dienstverlening = {};
+
+    if (typeVal === 'Scheiden of Blijven') {
+      // Persoonsgegevens: skip MANUAL_FIELDS; Woning/Zakelijk/Rechtbank: set all to 0
+      persoonsFields.forEach(f => {
+        if (MANUAL_FIELDS.has(f.key)) return;
+        if (!infoData[f.key]) infoData[f.key] = { b: 0, a: 0 };
+        infoData[f.key].b = 0;
+      });
+      [...woningFields, ...zakelijkFields, ...rechtbankFields].forEach(f => {
+        if (!infoData[f.key]) infoData[f.key] = { b: 0, a: 0 };
+        infoData[f.key].b = 0;
+      });
+      infoData._dienstverlening.rechtbank = 'n.v.t.';
+
+    } else if (typeVal === 'Scheiding') {
+      // Persoonsgegevens: skip MANUAL_FIELDS; then apply klantgegevens overrides
+      persoonsFields.forEach(f => {
+        if (MANUAL_FIELDS.has(f.key)) return;
+        if (!infoData[f.key]) infoData[f.key] = { b: 0, a: 0 };
+        infoData[f.key].b = 1;
+      });
+      applyKinderenRules(klant.kinderen || '');
+      applyVormRules(klant.vorm || '');
+      applyWoningRules(klant.woning || '');
+      applyBedrijfRules(klant.bedrijf || '');
+      infoData._dienstverlening.rechtbank = 'Ja';
+      applyDienstvRechtbankRules('Ja');
+
+    } else if (typeVal === 'Herziening OP' || typeVal === 'Herberekening') {
+      // Persoonsgegevens: skip MANUAL_FIELDS; set to 1 first, then cut off after 'saldi'
+      persoonsFields.forEach(f => {
+        if (MANUAL_FIELDS.has(f.key)) return;
+        if (!infoData[f.key]) infoData[f.key] = { b: 0, a: 0 };
+        infoData[f.key].b = 1;
+      });
+      applyKinderenRules(klant.kinderen || '');
+      applyVormRules(klant.vorm || '');
+      // Fields after 'saldi' (not including saldi) → n.v.t., but only if not MANUAL_FIELDS
+      let past = false;
+      persoonsFields.forEach(f => {
+        if (past && !MANUAL_FIELDS.has(f.key)) infoData[f.key].b = 0;
+        if (f.key === 'saldi') past = true;
+      });
+      applyWoningRules(klant.woning || '');
+      applyBedrijfRules(klant.bedrijf || '');
+      infoData._dienstverlening.rechtbank = 'Nee';
+      applyDienstvRechtbankRules('Nee');
+    }
+  }
+
+  function applyDienstvRechtbankRules(rechtbankVal) {
+    const rechtbankFields = SECTIONS.find(s => s.title === 'Rechtbank').fields;
+    if (rechtbankVal === 'Nee') {
+      rechtbankFields.forEach(f => { infoData[f.key] = { b: 0, a: (infoData[f.key] || {}).a || 0 }; });
+    } else if (rechtbankVal === 'Ja') {
+      // Re-apply klantgegevens rules so they override (kinderen → kindverklaringen + geboorteaktes, vorm → huwelijksakte)
+      const klant = infoData._klant || {};
+      applyKinderenRules(klant.kinderen || '');
+      applyVormRules(klant.vorm || '');
+      // pensioenverklaring has no klantgegevens rule; default to benodigd
+      if (!infoData['pensioenverklaring']) infoData['pensioenverklaring'] = { b: 0, a: 0 };
+      infoData['pensioenverklaring'].b = 1;
+    }
   }
 
   KLANT_FIELDS.forEach(f => {
@@ -892,7 +1119,7 @@ function renderForm() {
       const toevBtn = document.createElement('button');
       const updateToevBtn = () => {
         const v = statusData[statusKey] === 1 ? 1 : 0;
-        toevBtn.className = 'toggle' + (v === 1 ? ' on' : '');
+        toevBtn.className = 'toggle' + (v === 1 ? ' ben-on' : '');
         toevBtn.textContent = v === 1 ? '1' : '0';
       };
       updateToevBtn();
@@ -917,7 +1144,7 @@ function renderForm() {
   dienstvSection.style.marginTop = '28px';
 
   const dienstvTitleRow = document.createElement('div');
-  dienstvTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;';
+  dienstvTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--orange);margin-bottom:0;';
   const dienstvTitleText = document.createElement('div');
   dienstvTitleText.className = 'section-title';
   dienstvTitleText.style.cssText = 'border:none;padding:0;margin:0;';
@@ -932,7 +1159,7 @@ function renderForm() {
   const dienstvData = infoData._dienstverlening || {};
 
   [
-    { key: 'type',      label: 'Type',      options: ['', 'Scheiding', 'Herziening OP', 'Herberekening', 'Scheiden of Blijven'] },
+    { key: 'type',      label: 'Type',         options: ['', 'Scheiding', 'Herziening OP', 'Herberekening', 'Scheiden of Blijven'] },
     { key: 'rechtbank', label: 'Via rechtbank', options: ['', 'Ja', 'Nee'] },
   ].forEach(f => {
     const tr = document.createElement('tr');
@@ -942,15 +1169,20 @@ function renderForm() {
     valTd.style.cssText = 'text-align:left;';
     const sel = document.createElement('select');
     sel.style.cssText = selectStyle;
-    f.options.forEach(opt => {
+    const isScheideOfBlijven = f.key === 'rechtbank' && dienstvData.type === 'Scheiden of Blijven';
+    const opts = isScheideOfBlijven ? ['n.v.t.'] : f.options;
+    opts.forEach(opt => {
       const o = document.createElement('option');
       o.value = opt; o.textContent = opt || '—';
       if ((dienstvData[f.key] || '') === opt) o.selected = true;
       sel.appendChild(o);
     });
+    if (isScheideOfBlijven) { sel.disabled = true; sel.style.opacity = '0.5'; }
     sel.onchange = () => {
       if (!infoData._dienstverlening) infoData._dienstverlening = {};
       infoData._dienstverlening[f.key] = sel.value;
+      if (f.key === 'type')      { applyTypeRules(sel.value);             renderForm(); }
+      if (f.key === 'rechtbank') { applyDienstvRechtbankRules(sel.value); renderForm(); }
       scheduleSave();
     };
     valTd.appendChild(sel);
@@ -978,14 +1210,14 @@ function renderForm() {
     div.className = 'section';
 
     const titleRow = document.createElement('div');
-    titleRow.style.cssText = 'display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2px solid var(--ink);margin-bottom:0;';
+    titleRow.style.cssText = 'display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:2px solid var(--orange);margin-bottom:0;';
     const title = document.createElement('div');
     title.className = 'section-title';
     title.style.cssText = 'border:none;padding:0;margin:0;';
     title.textContent = section.title;
     titleRow.appendChild(title);
     if (section.title === 'Persoonsgegevens') {
-      const btnStyle = 'font-family:"DM Mono",monospace;font-size:0.68rem;padding:4px 12px;border:1.5px solid var(--ink);border-radius:3px;background:transparent;color:var(--ink);cursor:pointer;letter-spacing:0.05em;';
+      const btnStyle = 'font-family:"Nunito",sans-serif;font-size:0.72rem;font-weight:700;padding:4px 14px;border:1.5px solid var(--grey-rule);border-radius:20px;background:transparent;color:var(--grey-text);cursor:pointer;letter-spacing:0.02em;';
       const b1 = document.createElement('button');
       b1.style.cssText = btnStyle;
       b1.textContent = 'Benodigd alles 1';
@@ -1016,24 +1248,30 @@ function renderForm() {
       nameTd.textContent = f.label.replace(/partner 1/i, naamA).replace(/partner 2/i, naamB);
       tr.appendChild(nameTd);
 
+      let bBtn, aBtn;
+      const updateToggleClasses = () => {
+        const db = infoData[f.key] ? infoData[f.key].b : d.b;
+        const da = infoData[f.key] ? infoData[f.key].a : d.a;
+        const isNvt = db === 0 && da === 0;
+        if (bBtn) { bBtn.className = 'toggle' + (isNvt ? ' nvt' : db === 1 ? ' ben-on' : ''); bBtn.textContent = isNvt ? 'n.v.t.' : db === 1 ? '1' : '0'; }
+        if (aBtn) { aBtn.className = 'toggle' + (isNvt ? ' nvt' : da === 1 ? ' on' : ''); aBtn.textContent = isNvt ? 'n.v.t.' : da === 1 ? '1' : '0'; }
+      };
       ['b', 'a'].forEach(field => {
         const td = document.createElement('td');
         const btn = document.createElement('button');
-        btn.className = 'toggle' + (d[field] === 1 ? ' on' : '');
-        btn.textContent = d[field] === 1 ? '1' : '0';
+        if (field === 'b') bBtn = btn; else aBtn = btn;
         btn.onclick = () => {
           delete infoData._nvt;
           if (!infoData[f.key]) infoData[f.key] = { b: d.b, a: d.a };
           infoData[f.key][field] = infoData[f.key][field] === 1 ? 0 : 1;
-          const val = infoData[f.key][field];
-          btn.className = 'toggle' + (val === 1 ? ' on' : '');
-          btn.textContent = val === 1 ? '1' : '0';
+          updateToggleClasses();
           if (document.querySelector('#mainContent .nvt-banner')) renderForm();
           scheduleSave();
         };
         td.appendChild(btn);
         tr.appendChild(td);
       });
+      updateToggleClasses();
 
       tbody.appendChild(tr);
     });
@@ -1116,10 +1354,12 @@ async function init() {
 
     document.getElementById('klantName').textContent = data.klant || '—';
     document.title = `Gegevens – ${data.klant || 'Dossier'}`;
-    infoData = data.info_data ? JSON.parse(data.info_data) : {};
+    const isNew = !data.info_data;
+    infoData = isNew ? {} : JSON.parse(data.info_data);
     statusData = data;
     alarmSettings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
 
+    if (isNew) { applyDefaultBenodigd(); await save(); }
     renderForm();
     document.getElementById('loadingOverlay').style.display = 'none';
   } catch (e) {

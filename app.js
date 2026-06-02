@@ -21,14 +21,14 @@ function isInfoComplete(infoDataStr) {
 
 // ── COLUMNS ──
 const COLUMNS = [
-  { id: 'fase1',     label: 'Klanten 1e fase',   color: '#2a5f8f' },
-  { id: 'controle',  label: 'Controle Advocaat',  color: '#1a6e4a' },
-  { id: 'concepten', label: 'Klanten concepten',  color: '#d4771a' },
-  { id: 'getekend',  label: 'Getekend',           color: '#7a4f1e' },
-  { id: 'advocaat',  label: 'Advocaat',           color: '#5b3d8c' },
-  { id: 'rechtbank', label: 'Rechtbank',          color: '#c8390a' },
-  { id: 'gemeente',  label: 'Gemeente',           color: '#4a4a4a' },
-  { id: 'afronding', label: 'Afronding',          color: '#1a6e4a' },
+  { id: 'fase1',     label: 'Klanten 1e fase',   color: '#F7931E' },
+  { id: 'controle',  label: 'Controle Advocaat',  color: '#2D6AA0' },
+  { id: 'concepten', label: 'Klanten concepten',  color: '#C47A1A' },
+  { id: 'getekend',  label: 'Getekend',           color: '#3E6E3E' },
+  { id: 'advocaat',  label: 'Advocaat',           color: '#6D4A9C' },
+  { id: 'rechtbank', label: 'Rechtbank',          color: '#B83518' },
+  { id: 'gemeente',  label: 'Gemeente',           color: '#7A4E1E' },
+  { id: 'afronding', label: 'Afronding',          color: '#1E7A52' },
 ];
 
 // Fields per column. type: 'date' | 'yn' | 'info_btn' | 'docs_btn'
@@ -36,11 +36,10 @@ const COLUMNS = [
 const COLUMN_FIELDS = {
   fase1: {
     fields: [
-      { key: 'bevestigd', type: 'toevoeging_btn' },
-      {                                                     type: 'info_btn' },
-      { label: 'Klant gemaild',        key: 'gemaild',     type: 'yn'   },
-      { label: 'Actie voor',          key: 'actie_voor',     type: 'date' },
-      { label: '1e concept',          key: 'eerste_concept', type: 'date' },
+      { key: 'bevestigd', type: 'toevoeging_info_btn' },
+      { label: 'Klant gemaild',  key: 'gemaild',         type: 'yn'   },
+      { label: 'Actie voor',     key: 'actie_voor',       type: 'date' },
+      { label: '1e concept',     key: 'eerste_concept',   type: 'date' },
     ],
     hasOpm: true,
   },
@@ -62,8 +61,8 @@ const COLUMN_FIELDS = {
   },
   getekend: {
     fields: [
-      { label: 'Klanten getekend', key: 'akkoord_klanten', type: 'date' },
       {                                                      type: 'docs_btn' },
+      { label: 'Klanten getekend', key: 'akkoord_klanten', type: 'date' },
       { label: 'Verstuurd Advocaat', key: 'docs_verstuurd',  type: 'date' },
     ],
     hasOpm: true,
@@ -329,9 +328,36 @@ function isAfspraakOverdue(row) {
   return false;
 }
 
+function isPensioenverklaringOverdue(row) {
+  try {
+    const data = JSON.parse(row.info_data || '{}');
+    if (data._nvt) return false;
+    const p = data.pensioenverklaring || { b: 1, a: 0 };
+    if (p.b !== 1 || p.a === 1) return false;
+    const days = parseInt(alarmSettings.pensioenverklaring_termijn) || 0;
+    if (!days) return false;
+    const b = row.beschikking;
+    if (!b || b === 'n.v.t.') return false;
+    const d = new Date(b); d.setDate(d.getDate() + days); return d < new Date();
+  } catch(e) { return false; }
+}
+function isRechtbankAllNvt(row) {
+  try {
+    const data = JSON.parse(row.info_data || '{}');
+    if (data._nvt) return true;
+    return ['huwelijksakte','kindverklaringen','geboorteaktes','pensioenverklaring'].every(k => { const d = data[k]; return d && d.b === 0 && d.a === 0; });
+  } catch(e) { return false; }
+}
 function isDocsUrgent(row) {
-  if (row.docs_compleet === 'ja') return false;
-  return !!(row.akkoord_klanten && row.akkoord_klanten !== 'n.v.t.');
+  if (row.docs_compleet === 'ja' || isRechtbankAllNvt(row)) return false;
+  return !!(row.akkoord_klanten && row.akkoord_klanten !== 'n.v.t.') || isPensioenverklaringOverdue(row);
+}
+
+function isInfoUrgent(row) {
+  if (isInfoComplete(row.info_data)) return false;
+  const datum = row.datum_afspraak; if (!datum || datum === 'n.v.t.') return false;
+  const days = parseInt(alarmSettings.info_voor_afspraak) || 0; if (!days) return false;
+  const deadline = new Date(datum); deadline.setDate(deadline.getDate() - days); return deadline < new Date();
 }
 
 function countAlarms(row) {
@@ -506,16 +532,17 @@ function renderCard(row, col) {
     dragRowId = null;
   });
 
-  // Colored top area (border + name + dots)
+  // Colored top border — flush at very top of card
+  const topBorder = document.createElement('div');
+  topBorder.className = 'card-top-border';
+  topBorder.style.background = col.color;
+  card.appendChild(topBorder);
+
+  // Tinted name area
   const topArea = document.createElement('div');
   topArea.className = 'card-top-area';
   topArea.style.background = col.color + '18';
   card.appendChild(topArea);
-
-  const topBorder = document.createElement('div');
-  topBorder.className = 'card-top-border';
-  topBorder.style.background = col.color;
-  topArea.appendChild(topBorder);
 
   const body = document.createElement('div');
   body.className = 'card-body';
@@ -541,17 +568,18 @@ function renderCard(row, col) {
   const badges = document.createElement('div');
   badges.className = 'card-badges';
 
-  if (alarmCount > 0) {
-    const badge = document.createElement('span');
-    badge.className = 'alarm-badge';
-    badge.innerHTML = '<svg width="28" height="26" viewBox="0 0 14 13" fill="none"><path d="M7 0.5L13.5 12H0.5L7 0.5Z" fill="#c8390a" stroke="#c8390a" stroke-width="0.5" stroke-linejoin="round"/><rect x="6.25" y="3.5" width="1.5" height="4.5" rx="0.75" fill="white"/><circle cx="7" cy="10" r="0.85" fill="white"/></svg>';
-    badges.appendChild(badge);
+  // Flag triangle — always visible; gray = inactive, red = flagged
+  const badge = document.createElement('span');
+  badge.className = 'alarm-badge';
+  badge.style.cursor = 'pointer';
+  function renderBadge(flagged) {
+    badge.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="pointer-events:none"><path d="M9 2L16.5 15.5H1.5L9 2Z" fill="${flagged ? 'currentColor' : 'none'}" fill-opacity="${flagged ? '0.15' : '0'}" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><rect x="8.25" y="6" width="1.5" height="5" rx="0.75" fill="currentColor"/><circle cx="9" cy="13" r="0.85" fill="currentColor"/></svg>`;
+    badge.classList.toggle('flagged', flagged);
+    badge.title = flagged ? 'Markering verwijderen' : 'Markeren';
   }
-
-  const flagStripe = document.createElement('div');
-  flagStripe.className = 'flag-stripe' + (row.flagged ? ' flagged' : '');
-  flagStripe.title = row.flagged ? 'Markering verwijderen' : 'Markeren';
-  flagStripe.addEventListener('click', e => { e.stopPropagation(); toggleFlag(row, flagStripe); });
+  renderBadge(row.flagged);
+  badge.addEventListener('click', e => { e.stopPropagation(); toggleFlag(row, renderBadge); });
+  badges.appendChild(badge);
 
   headerRow.appendChild(name);
   headerRow.appendChild(badges);
@@ -611,34 +639,59 @@ function renderCard(row, col) {
       const complete = isInfoComplete(row.info_data);
       const btn = document.createElement('a');
       btn.className = 'card-status-btn' + (complete ? ' complete' : '');
-      btn.textContent = complete ? '✓ Info compleet' : 'Info incompleet';
+      btn.textContent = complete ? '✓ Info' : 'Info';
       btn.href = `info.html?id=${row.id}`;
       btn.addEventListener('click', e => e.stopPropagation());
       fieldRow.appendChild(btn);
 
     } else if (field.type === 'docs_btn') {
       fieldRow.className = 'card-field-row card-field-btn-row';
-      const complete = row.docs_compleet === 'ja';
-      const urgent = !complete && isDocsUrgent(row);
-      const link = document.createElement('a');
-      link.className = 'info-link-btn' + (complete ? ' complete' : urgent ? ' urgent' : '');
-      link.textContent = complete ? '✓ Aktes compleet' : 'Aktes incompleet';
-      link.href = `info.html?id=${row.id}`;
-      link.addEventListener('click', e => e.stopPropagation());
-      fieldRow.appendChild(link);
+      if (isRechtbankAllNvt(row)) {
+        fieldRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;font-size:0.78rem;';
+        const lbl = document.createElement('span');
+        lbl.className = 'card-field-label';
+        lbl.textContent = 'Aktes';
+        const val = document.createElement('span');
+        val.style.cssText = 'color:var(--grey);font-style:italic;font-size:0.78rem;font-weight:600;';
+        val.textContent = 'n.v.t.';
+        fieldRow.appendChild(lbl);
+        fieldRow.appendChild(val);
+      } else {
+        const complete = row.docs_compleet === 'ja';
+        const urgent = !complete && isDocsUrgent(row);
+        const link = document.createElement('a');
+        link.className = 'card-status-btn' + (complete ? ' complete' : urgent ? ' urgent' : '');
+        link.style.cssText = 'flex:1;min-width:0;text-align:center;';
+        link.textContent = complete ? '✓ Aktes' : 'Aktes';
+        link.href = `info.html?id=${row.id}`;
+        link.addEventListener('click', e => e.stopPropagation());
+        fieldRow.appendChild(link);
+      }
 
-    } else if (field.type === 'toevoeging_btn') {
+    } else if (field.type === 'toevoeging_info_btn') {
       fieldRow.className = 'card-field-row card-field-btn-row';
-      const nvt    = (row.toevoeging_a ?? 0) === 0 && (row.toevoeging_b ?? 0) === 0;
-      const alarm  = !nvt && isBevestigdOverdue(row);
-      const done   = !nvt &&
-        (row.toevoeging_a !== 1 || hasValue(row.bevestigd_a)) &&
-        (row.toevoeging_b !== 1 || hasValue(row.bevestigd_b));
-      const btn    = document.createElement(nvt ? 'span' : 'a');
-      btn.className = 'card-status-btn' + (nvt ? ' muted' : done ? ' complete' : alarm ? ' urgent' : '');
-      btn.textContent = nvt ? 'Geen toevoegingen' : done ? '✓ Toevoegingen' : 'Toevoegingen';
-      if (!nvt) { btn.href = `toevoegingen.html?id=${row.id}`; btn.addEventListener('click', e => e.stopPropagation()); }
-      fieldRow.appendChild(btn);
+
+      const infoComplete = isInfoComplete(row.info_data);
+      const infoUrgent  = isInfoUrgent(row);
+      const infoBtn = document.createElement('a');
+      infoBtn.className = 'card-status-btn card-status-btn-sm' + (infoComplete ? ' complete' : infoUrgent ? ' urgent' : '');
+      infoBtn.textContent = infoComplete ? '✓ Info' : 'Info';
+      infoBtn.href = `info.html?id=${row.id}`;
+      infoBtn.addEventListener('click', e => e.stopPropagation());
+      fieldRow.appendChild(infoBtn);
+
+      const nvt   = (row.toevoeging_a ?? 0) === 0 && (row.toevoeging_b ?? 0) === 0;
+      if (!nvt) {
+        const alarm = isBevestigdOverdue(row);
+        const done  = (row.toevoeging_a !== 1 || hasValue(row.bevestigd_a)) &&
+                      (row.toevoeging_b !== 1 || hasValue(row.bevestigd_b));
+        const toevBtn = document.createElement('a');
+        toevBtn.className = 'card-status-btn' + (done ? ' complete' : alarm ? ' urgent' : '');
+        toevBtn.textContent = done ? '✓ Toevoegingen' : 'Toevoegingen';
+        toevBtn.href = `toevoegingen.html?id=${row.id}`;
+        toevBtn.addEventListener('click', e => e.stopPropagation());
+        fieldRow.appendChild(toevBtn);
+      }
     }
 
     fieldsWrap.appendChild(fieldRow);
@@ -656,7 +709,6 @@ function renderCard(row, col) {
   body.appendChild(opm);
 
   card.appendChild(body);
-  card.appendChild(flagStripe);
 
   card.addEventListener('click', () => {
     if (row.id) window.location.href = `info.html?id=${row.id}&tab=klantstatus`;
@@ -683,9 +735,8 @@ function setSort(val) {
 }
 
 function setFilter(type, btn) {
-  currentFilter = type;
-  document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (currentFilter === type) { currentFilter = 'all'; btn.classList.remove('active'); }
+  else { currentFilter = type; document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
   filterCards(document.getElementById('searchInput').value);
 }
 
@@ -728,14 +779,13 @@ function filterCards(query) {
 }
 
 // ── FLAG ──
-async function toggleFlag(row, stripe) {
+async function toggleFlag(row, updateBadge) {
   row.flagged = !row.flagged;
-  stripe.classList.toggle('flagged', row.flagged);
-  stripe.title = row.flagged ? 'Markering verwijderen' : 'Markeren';
+  updateBadge(row.flagged);
   const { error } = await db.from('dossiers').update({ flagged: row.flagged }).eq('id', row.id);
   if (error) {
     row.flagged = !row.flagged;
-    stripe.classList.toggle('flagged', row.flagged);
+    updateBadge(row.flagged);
     showToast('Opslaan mislukt');
   }
 }

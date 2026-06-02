@@ -4,183 +4,44 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Statusoverzicht</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root {
-  --ink: #0f0e0c; --paper: #f5f2ec; --cream: #ede9e0; --rule: #ccc9bf;
-  --accent: #c8390a; --accent-soft: #f0ddd7;
-  --phase-a: #2a5f8f; --phase-a-soft: #ddeaf5;
-  --phase-o: #4a4a4a; --phase-o-soft: #e5e5e0;
-  --phase1: #2a5f8f; --phase2: #1a6e4a; --phase3: #5b3d8c; --phase4: #4a4a4a; --phase5: #1a6e4a;
-  --phase1-soft: #ddeaf5; --phase2-soft: #d5ede2; --phase3-soft: #e8dff5; --phase4-soft: #e5e5e0; --phase5-soft: #d5ede2;
+/* ── Statusoverzicht phase-colour overrides ── */
+/* (style.css uses generic ph1/ph2... names; statusoverzicht uses its own mapping) */
+.ph-blank { background: var(--orange) !important; border-right: 1px solid var(--orange-dark) !important; }
+.ph-a  { background: #F7931E !important; color: white; } /* Klanten 1e fase  */
+.ch-a  { background: var(--orange-soft) !important; color: var(--orange-dark) !important; min-width: 110px; }
+.ph2   { background: #2D6AA0 !important; color: white; } /* Controle Advocaat */
+.ch2   { background: #DEEAF6 !important; color: #2D6AA0 !important; min-width: 110px; }
+.ph-c  { background: #C47A1A !important; color: white; } /* Klanten concepten */
+.ch-c  { background: #FCE8CC !important; color: #C47A1A !important; min-width: 110px; }
+.ph-g  { background: #3E6E3E !important; color: white; } /* Getekend          */
+.ch-g  { background: #E0EEE0 !important; color: #3E6E3E !important; min-width: 110px; }
+.ph3   { background: #6D4A9C !important; color: white; } /* Advocaat          */
+.ch3   { background: #EAE0F6 !important; color: #6D4A9C !important; min-width: 110px; }
+.ph-rb { background: #B83518 !important; color: white; } /* Rechtbank         */
+.ch-rb { background: #F5DDD7 !important; color: #B83518 !important; min-width: 110px; }
+.ph4   { background: #7A4E1E !important; color: white; } /* Gemeente          */
+.ch4   { background: #EED8BE !important; color: #7A4E1E !important; min-width: 110px; }
+.ph5   { background: #1E7A52 !important; color: white; } /* Afronding         */
+.ch5   { background: #D4EDE2 !important; color: #1E7A52 !important; min-width: 110px; }
+
+/* Flag button — triangle, matches kanban */
+.flag-btn {
+  color: #CCCCCC;
+  background: none; border: none; cursor: pointer;
+  padding: 4px 6px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s, background 0.15s;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'DM Mono', monospace; background: var(--paper); color: var(--ink); min-height: 100vh; overflow-x: hidden; }
+.flag-btn.flagged { color: #B83518; }
+.flag-btn:hover { color: #B83518 !important; background: #FFE8E8; }
+tbody tr td.col-flag-td:hover { background: #FFE8E8 !important; }
 
-/* LOGIN */
-#loginScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
-.login-card { background: white; border: 1.5px solid var(--rule); border-radius: 6px; padding: 48px 40px; max-width: 400px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,0.08); }
-.login-card h1 { font-family: 'Fraunces', serif; font-size: 1.8rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 6px; }
-.login-card .subtitle { font-size: 0.72rem; color: #999; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 36px; }
-.login-card label { display: block; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: #666; margin-bottom: 8px; }
-.login-card input[type="email"], .login-card input[type="password"] { width: 100%; border: 1.5px solid var(--rule); border-radius: 3px; padding: 10px 14px; font-family: 'DM Mono', monospace; font-size: 0.82rem; outline: none; background: var(--paper); margin-bottom: 16px; transition: border-color 0.15s; }
-.login-card input[type="email"]:focus, .login-card input[type="password"]:focus { border-color: var(--accent); }
-.login-btn { width: 100%; background: var(--ink); color: var(--paper); border: none; border-radius: 3px; padding: 11px; font-family: 'DM Mono', monospace; font-size: 0.78rem; letter-spacing: 0.08em; cursor: pointer; transition: background 0.15s; }
-.login-btn:hover { background: #2a2825; }
-.login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.login-msg { font-size: 0.72rem; margin-top: 16px; text-align: center; color: var(--phase2); min-height: 20px; }
-.login-msg.error { color: var(--accent); }
-
-/* APP */
-#appScreen { display: none; }
-
-/* HEADER */
-header { background: var(--ink); color: var(--paper); padding: 20px 32px; display: flex; align-items: baseline; gap: 24px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
-header h1 { font-family: 'Fraunces', serif; font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em; color: var(--paper); }
-header .subtitle { font-size: 0.7rem; opacity: 0.5; letter-spacing: 0.12em; text-transform: uppercase; }
-.header-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
-#userEmail { font-size: 0.68rem; opacity: 0.5; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 7px 16px; border: 1.5px solid currentColor; border-radius: 3px; cursor: pointer; letter-spacing: 0.06em; transition: all 0.15s; background: transparent; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
-.btn-primary:hover { background: #a82e06; border-color: #a82e06; }
-.btn-ghost { color: var(--paper); }
-.btn-ghost:hover { background: rgba(255,255,255,0.1); }
-
-/* TOOLBAR */
-.toolbar { padding: 12px 32px; background: var(--cream); border-bottom: 1px solid var(--rule); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.view-toggle { display: flex; border: 1.5px solid var(--rule); border-radius: 4px; overflow: hidden; }
-.view-btn { background: white; border: none; cursor: pointer; padding: 5px 10px; color: #aaa; display: flex; align-items: center; transition: all 0.15s; }
-.view-btn:hover { background: var(--cream); color: var(--ink); }
-.view-btn.active { background: var(--ink); color: white; }
-.view-btn + .view-btn { border-left: 1.5px solid var(--rule); }
-.search-box { display: flex; align-items: center; gap: 6px; background: white; border: 1.5px solid var(--rule); border-radius: 3px; padding: 6px 12px; flex: 1; max-width: 280px; }
-.search-box input { border: none; outline: none; font-family: 'DM Mono', monospace; font-size: 0.75rem; background: transparent; width: 100%; }
-.search-clear { border: none; background: none; cursor: pointer; color: #aaa; font-size: 1rem; line-height: 1; padding: 0; display: flex; align-items: center; flex-shrink: 0; }
-.search-clear:hover { color: var(--ink); }
-.filter-tag { font-size: 0.68rem; padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--rule); cursor: pointer; background: white; letter-spacing: 0.04em; transition: all 0.15s; color: var(--ink); font-family: 'DM Mono', monospace; }
-.filter-tag:hover, .filter-tag.active { background: var(--ink); color: white; border-color: var(--ink); }
-.record-count { font-size: 0.68rem; opacity: 0.5; margin-left: auto; }
-.sync-status { font-size: 0.65rem; opacity: 0.4; letter-spacing: 0.05em; }
-.sync-status.saving { opacity: 1; color: var(--phase2); }
-.sync-status.error { opacity: 1; color: var(--accent); }
-
-/* TABLE */
-.table-scroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px); padding-bottom: 20px; }
-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
-thead tr.phase-row th { font-family: 'Fraunces', serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 14px 6px; text-align: center; position: sticky; top: 0; z-index: 10; border-bottom: none; white-space: nowrap; }
-.ph-blank { background: var(--ink); border-right: 1px solid #333; }
-.ph-a { background: var(--phase-a); color: white; }
-.ph-c { background: #d4771a; color: white; }
-.ph-g { background: #7a4f1e; color: white; }
-.ph-rb { background: #c8390a; color: white; }
-.ph1 { background: var(--phase1); color: white; }
-.ph2 { background: var(--phase2); color: white; }
-.ph3 { background: var(--phase3); color: white; }
-.ph4 { background: var(--phase4); color: white; }
-.ph5 { background: var(--phase5); color: white; }
-.ph-o { background: var(--phase-o); color: white; }
-thead tr.col-row th { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; padding: 8px 10px; white-space: nowrap; position: sticky; top: 40px; z-index: 9; cursor: pointer; user-select: none; border-bottom: 2px solid var(--ink); transition: background 0.12s; }
-thead tr.col-row th:hover { filter: brightness(0.92); }
-thead tr.col-row th.sorted-asc::after { content: ' ↑'; }
-thead tr.col-row th.sorted-desc::after { content: ' ↓'; }
-.ch-klant { background: var(--ink); color: var(--paper); min-width: 150px; left: 72px; position: sticky; z-index: 11; border-right: 2px solid #333; }
-.ch-a { background: var(--phase-a-soft); color: var(--phase-a); min-width: 110px; }
-.ch-c { background: #fce8cc; color: #d4771a; min-width: 110px; }
-.ch-g { background: #edddd0; color: #7a4f1e; min-width: 110px; }
-.ch-rb { background: #f5ddd7; color: #c8390a; min-width: 110px; }
-.ch1 { background: var(--phase1-soft); color: var(--phase1); min-width: 110px; }
-.ch2 { background: var(--phase2-soft); color: var(--phase2); min-width: 110px; }
-.ch3 { background: var(--phase3-soft); color: var(--phase3); min-width: 110px; }
-.ch4 { background: var(--phase4-soft); color: var(--phase4); min-width: 110px; }
-.ch5 { background: var(--phase5-soft); color: var(--phase5); min-width: 110px; }
-.ch-o { background: var(--phase-o-soft); color: var(--phase-o); min-width: 180px; }
-tbody tr { transition: background 0.1s; }
-tbody tr:nth-child(even) td { background: #faf8f4; }
-tbody tr:hover td { background: #eef4fc !important; }
-tbody tr:hover td.alarm-red { background: #ffd5d5 !important; }
-tbody tr:hover td.gemaild-nee { background: #ffd5d5 !important; }
-tbody tr:hover td.col-klant .cell-display { color: black; }
-tbody td { padding: 0; border-bottom: 1px solid var(--rule); vertical-align: middle; font-size: 0.72rem; }
-td.col-klant { position: sticky; left: 72px; z-index: 5; background: var(--ink) !important; color: var(--paper); border-right: 2px solid #333; font-weight: 500; font-size: 0.73rem; min-width: 150px; cursor: pointer; }
-
-/* CELL */
-tbody td.gemaild-nee { background: #ffd5d5 !important; }
-tbody td.alarm-red { background: #ffd5d5 !important; }
-.del-btn { background: none; border: none; cursor: pointer; color: transparent; font-size: 0.8rem; padding: 4px 6px; transition: color 0.15s; border-radius: 3px; }
-tbody tr:hover .del-btn { color: #ccc; }
-.del-btn:hover { color: var(--accent) !important; background: var(--accent-soft); }
-.flag-btn { width: 26px; height: 26px; border: 1.5px solid #ddd; border-radius: 3px; cursor: pointer; background: white; display: flex; align-items: center; justify-content: center; padding: 0; transition: all 0.15s; flex-shrink: 0; }
-.flag-btn::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: transparent; border: 1.5px solid var(--ink); display: block; }
-.flag-btn.flagged::after { background: var(--accent); border-color: var(--accent); }
-.flag-btn:hover { filter: brightness(0.92); }
-td { cursor: pointer; }
-td .cell-display { min-height: 36px; padding: 8px 10px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; color: var(--ink); white-space: nowrap; }
-td.col-klant .cell-display { color: var(--paper); font-weight: 500; justify-content: flex-start; }
-td[data-key="opmerkingen"] .cell-display { justify-content: flex-start; }
-td .cell-display.empty { color: transparent; }
-td:hover .cell-display.empty { color: #ccc; }
-td .cell-display.empty::after { content: '—'; }
-td input, td select { display: none; width: 100%; min-height: 36px; border: none; outline: none; background: rgba(200,57,10,0.07); font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--ink); padding: 8px 10px; cursor: text; }
-td.col-klant input { background: rgba(255,255,255,0.12); color: var(--paper); }
-td.col-klant.editing-cell input { color: var(--ink); }
-td select { -webkit-appearance: none; appearance: none; text-align: center; cursor: pointer; }
-td.editing-cell .cell-display { display: none; }
-td.editing-cell input, td.editing-cell select { display: block; }
-.date-edit-wrap { display: none; align-items: stretch; }
-td.editing-cell .date-edit-wrap { display: flex; position: absolute; top: 0; left: 0; z-index: 200; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-td.editing-cell .date-edit-wrap input[type="date"] { display: block; min-width: 0; }
-.nvt-btn { font-family: 'DM Mono', monospace; font-size: 0.65rem; padding: 5px 10px; border: 1px solid var(--ink); border-left: none; border-radius: 0 3px 3px 0; cursor: pointer; background: var(--ink); color: var(--paper); white-space: nowrap; font-weight: 500; letter-spacing: 0.04em; text-align: center; }
-.nvt-btn:hover { background: #2a2825; }
-.info-link-btn { font-family: 'DM Mono', monospace; font-size: 0.62rem; padding: 4px 8px; border: 1.5px solid var(--phase-a); border-radius: 3px; color: var(--phase-a); background: var(--phase-a-soft); text-decoration: none; display: inline-block; letter-spacing: 0.04em; transition: all 0.15s; }
-.info-link-btn:hover { background: var(--phase-a); color: white; }
-.info-link-btn.complete { background: var(--phase2-soft); border-color: var(--phase2); color: var(--phase2); }
-.info-link-btn.complete:hover { background: var(--phase2); color: white; }
-.info-link-btn.urgent { background: #f5d5d5; border-color: #a81c1c; color: #a81c1c; }
-.info-link-btn.urgent:hover { background: #a81c1c; color: white; }
-.info-link-btn.muted { border-color: #bbb; color: #aaa; background: #f4f4f4; pointer-events: none; cursor: default; }
-.info-link-btn.muted:hover { background: #f4f4f4; color: #aaa; }
-.toev-col-btn { text-align: center; white-space: nowrap; }
-.add-row-btn { display: flex; align-items: center; gap: 8px; padding: 10px 32px; cursor: pointer; background: var(--cream); border: none; border-top: 1.5px dashed var(--rule); width: 100%; text-align: left; font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--accent); letter-spacing: 0.06em; transition: background 0.15s; position: sticky; left: 0; }
-.add-row-btn:hover { background: var(--accent-soft); }
-.add-row-btn span { font-size: 1.2rem; line-height: 1; }
-.empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
-.empty-state p { font-size: 0.8rem; margin-top: 8px; }
-
-/* LOADING */
-#loadingOverlay { position: fixed; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 999; }
-#loadingOverlay p { font-size: 0.75rem; opacity: 0.5; letter-spacing: 0.08em; }
-.spinner { width: 28px; height: 28px; border: 2px solid var(--rule); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* TOAST */
-#toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: var(--paper); padding: 10px 18px; border-radius: 4px; font-size: 0.72rem; opacity: 0; transform: translateY(10px); transition: all 0.25s; pointer-events: none; z-index: 999; }
-#toast.show { opacity: 1; transform: translateY(0); }
-
-/* OPMERKINGEN FIXED */
-#mainTable.opmerkingen-fixed .ph-o { right: 0; border-left: 2px solid rgba(255,255,255,0.25); }
-#mainTable.opmerkingen-fixed .ch-o { right: 0; z-index: 11; border-left: 2px solid var(--rule); width: var(--opmerkingen-width); min-width: var(--opmerkingen-width); max-width: var(--opmerkingen-width); }
-#mainTable.opmerkingen-fixed td[data-key="opmerkingen"] { position: sticky; right: 0; z-index: 5; background: var(--paper); border-left: 2px solid var(--rule); width: var(--opmerkingen-width); min-width: var(--opmerkingen-width); max-width: var(--opmerkingen-width); overflow: hidden; }
-#mainTable.opmerkingen-fixed tbody tr:nth-child(even) td[data-key="opmerkingen"] { background: #faf8f4; }
-#mainTable.opmerkingen-fixed tbody tr:hover td[data-key="opmerkingen"] { background: #eef4fc !important; }
-.opm-resize { position: absolute; left: 0; top: 0; width: 5px; height: 100%; cursor: col-resize; z-index: 1; }
-.opm-resize:hover, .opm-resize.dragging { background: rgba(200,57,10,0.3); }
-
-/* COLLAPSE */
-.phase-row th[id^="ph-header-"] { cursor: pointer; user-select: none; }
-.phase-row th[id^="ph-header-"]:hover { filter: brightness(1.15); }
-.phase-row th[id^="ph-header-"]::after { content: ' ▾'; font-size: 0.6rem; opacity: 0.7; }
-.phase-row th[id^="ph-header-"].phase-collapsed::after { content: ' ▸'; }
-.phase-placeholder-th { width: 28px; min-width: 28px; background: var(--cream); cursor: default; padding: 0; }
-.phase-placeholder-td { width: 28px; padding: 0 !important; border-bottom: 1px solid var(--rule); background: var(--cream); }
-
-/* MODAL */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,14,12,0.6); z-index: 200; align-items: center; justify-content: center; }
-.modal-overlay.open { display: flex; }
-.modal { background: var(--paper); border-radius: 4px; padding: 28px 32px; max-width: 420px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-.modal h2 { font-family: 'Fraunces', serif; font-size: 1.2rem; margin-bottom: 16px; }
-.modal p { font-size: 0.75rem; line-height: 1.6; color: #555; margin-bottom: 20px; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+/* col-row sticky cells with orange blank background */
+thead tr.col-row th.ph-blank { background: var(--orange) !important; border-bottom: 2px solid var(--orange-dark) !important; }
 </style>
 </head>
 <body>
@@ -189,6 +50,14 @@ td.editing-cell .date-edit-wrap input[type="date"] { display: block; min-width: 
 
 <div id="loginScreen">
   <div class="login-card">
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+    </div>
     <h1>Statusoverzicht</h1>
     <p class="subtitle">Dossier Beheer</p>
     <label for="emailInput">E-mailadres</label>
@@ -202,14 +71,26 @@ td.editing-cell .date-edit-wrap input[type="date"] { display: block; min-width: 
 
 <div id="appScreen">
   <header>
-    <h1>Statusoverzicht</h1>
-    <span class="subtitle">Dossier Beheer</span>
-    <div class="header-actions">
-      <span id="userEmail"></span>
-      <button class="btn btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
-      <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
-      <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
-      <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+    <div class="header-inner">
+      <div class="logo-wrap">
+        <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+          <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+          <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+          <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+        </svg>
+      </div>
+      <div class="page-title">
+        <h1>Statusoverzicht</h1>
+        <span class="header-subtitle">Dossier Beheer</span>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
+        <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
+        <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+      </div>
     </div>
   </header>
 
@@ -223,10 +104,9 @@ td.editing-cell .date-edit-wrap input[type="date"] { display: block; min-width: 
       <input type="text" id="searchInput" placeholder="Zoek op klantnaam..." oninput="filterRows();document.getElementById('searchClear').style.display=this.value?'flex':'none'">
       <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';filterRows();this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
-    <button class="filter-tag active" onclick="setFilter('all', this)">Alles</button>
+    <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
     <button class="filter-tag" onclick="setFilter('incomplete', this)">Onvolledig</button>
     <button class="filter-tag" onclick="setFilter('complete', this)">Afgerond</button>
-    <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
     <button class="filter-tag" id="opmerkingenToggle" onclick="toggleOpmerkingen()">Opmerkingen altijd zichtbaar</button>
     <button class="btn btn-primary" onclick="addRow()">+ Nieuwe klant</button>
     <span class="sync-status" id="syncStatus">● opgeslagen</span>
@@ -251,8 +131,8 @@ td.editing-cell .date-edit-wrap input[type="date"] { display: block; min-width: 
           <th class="ph-o" id="ph-header-pho" colspan="1" onclick="togglePhase('pho')" title="Klik om in/uit te klappen">Opmerkingen</th>
         </tr>
         <tr class="col-row" id="colHeaders">
-          <th class="ph-blank" style="width:36px;background:var(--ink);"></th>
-          <th class="ph-blank" style="width:36px;background:var(--ink);"></th>
+          <th class="ph-blank" style="width:36px;background:var(--ink);position:sticky;left:0;z-index:11;"></th>
+          <th class="ph-blank" style="width:36px;background:var(--ink);position:sticky;left:36px;z-index:11;"></th>
           <th class="ch-klant" onclick="sortTable(0)">Klant</th>
           <th class="ch-a" data-phase="pha">Toevoegingen</th>
           <th class="ch-a" data-phase="pha" onclick="sortTable(2)">Klant gemaild</th>
@@ -450,7 +330,27 @@ function isBeeindigdOverdue(row) { if (row.beeindigd) return false; return !!(ro
 function isVergoedingAangevraagdOverdue(row) { if (row.vergoeding_aangevraagd) return false; return row.kanban_column === 'gemeente' || row.kanban_column === 'afronding' || !!(row.verstuurd_gemeente && row.verstuurd_gemeente !== 'n.v.t.') || !!(row.beeindigd && row.beeindigd !== 'n.v.t.'); }
 function isVergoedingOntvangenOverdue(row) { if (row.vergoeding_ontvangen) return false; const a = row.vergoeding_aangevraagd; if (!a || a === 'n.v.t.') return false; const days = parseInt(alarmSettings.reactie_vergoeding_rvr) || 0; if (!days) return false; const d = new Date(a); d.setDate(d.getDate() + days); return d < new Date(); }
 function isZozaOverdue(row) { if (row.zoza_afgerond) return false; return !!(row.beeindigd && row.beeindigd !== 'n.v.t.' && row.vergoeding_ontvangen); }
-function isDocsUrgent(row) { if (row.docs_compleet === 'ja') return false; return !!(row.akkoord_klanten && row.akkoord_klanten !== 'n.v.t.'); }
+function isPensioenverklaringOverdue(row) {
+  try {
+    const data = JSON.parse(row.info_data || '{}');
+    if (data._nvt) return false;
+    const p = data.pensioenverklaring || { b: 1, a: 0 };
+    if (p.b !== 1 || p.a === 1) return false;
+    const days = parseInt(alarmSettings.pensioenverklaring_termijn) || 0;
+    if (!days) return false;
+    const b = row.beschikking;
+    if (!b || b === 'n.v.t.') return false;
+    const d = new Date(b); d.setDate(d.getDate() + days); return d < new Date();
+  } catch(e) { return false; }
+}
+function isRechtbankAllNvt(row) {
+  try {
+    const data = JSON.parse(row.info_data || '{}');
+    if (data._nvt) return true;
+    return ['huwelijksakte','kindverklaringen','geboorteaktes','pensioenverklaring'].every(k => { const d = data[k]; return d && d.b === 0 && d.a === 0; });
+  } catch(e) { return false; }
+}
+function isDocsUrgent(row) { if (row.docs_compleet === 'ja' || isRechtbankAllNvt(row)) return false; return !!(row.akkoord_klanten && row.akkoord_klanten !== 'n.v.t.') || isPensioenverklaringOverdue(row); }
 function isInfoUrgent(row) {
   if (isInfoComplete(row.info_data)) return false;
   const datum = row.datum_afspraak; if (!datum || datum === 'n.v.t.') return false;
@@ -478,6 +378,7 @@ function refreshAllAlarms(tr, row, key) {
   if (key === 'docs_verstuurd' || key === 'belafspraak') refreshAlarm(tr, row, 'belafspraak', isBelafspraakOverdue);
   if (key === 'belafspraak' || key === 'rechtbank') refreshAlarm(tr, row, 'rechtbank', isRechtbankOverdue);
   if (key === 'rechtbank' || key === 'beschikking') refreshAlarm(tr, row, 'beschikking', isBeschikkingOverdue);
+  if (key === 'beschikking') refreshDocsUrgent(tr, row);
   if (key === 'beschikking' || key === 'verstuurd_klanten') refreshAlarm(tr, row, 'verstuurd_klanten', isVerstuurKlantenOverdue);
   if (key === 'verstuurd_klanten' || key === 'akkoord_klanter') refreshAlarm(tr, row, 'akkoord_klanter', isAkkoordKlanterOverdue);
   if (key === 'akkoord_klanter' || key === 'verstuurd_gemeente') refreshAlarm(tr, row, 'verstuurd_gemeente', isVerstuurGemeenteOverdue);
@@ -568,7 +469,7 @@ function renderTable() {
       if (key === 'afspraak'       && isAfspraakOverdue(row))                                  td.classList.add('alarm-red');
 
       const display = document.createElement('div');
-      display.className = 'cell-display' + (val ? '' : ' empty');
+      display.className = 'cell-display' + (!val ? ' empty' : val === 'n.v.t.' ? ' is-nvt' : '');
       display.textContent = formatDisplay(val, ci);
       td.appendChild(display);
 
@@ -576,10 +477,15 @@ function renderTable() {
       if (key === 'docs_compleet') {
         display.innerHTML = ''; display.className = 'cell-display';
         if (row.id) {
-          const docsLink = document.createElement('a');
-          docsLink.href = `info.html?id=${row.id}`;
-          docsLink.className = 'info-link-btn' + (val === 'ja' ? ' complete' : isDocsUrgent(row) ? ' urgent' : '');
-          docsLink.textContent = 'Docs'; display.appendChild(docsLink);
+          if (isRechtbankAllNvt(row)) {
+            display.className = 'cell-display is-nvt';
+            display.textContent = 'n.v.t.';
+          } else {
+            const docsLink = document.createElement('a');
+            docsLink.href = `info.html?id=${row.id}`;
+            docsLink.className = 'info-link-btn' + (val === 'ja' ? ' complete' : isDocsUrgent(row) ? ' urgent' : '');
+            docsLink.textContent = val === 'ja' ? '✓ Aktes' : 'Aktes'; display.appendChild(docsLink);
+          }
         }
         td.style.cursor = 'default';
       } else if (COL_TYPES[ci] === 'toevoeging_btn') {
@@ -590,11 +496,17 @@ function renderTable() {
           const done  = !nvt &&
             (row.toevoeging_a !== 1 || !!(row.bevestigd_a && row.bevestigd_a !== 'n.v.t.')) &&
             (row.toevoeging_b !== 1 || !!(row.bevestigd_b && row.bevestigd_b !== 'n.v.t.'));
-          const btn   = document.createElement(nvt ? 'span' : 'a');
-          btn.className = 'info-link-btn toev-col-btn' + (nvt ? ' muted' : done ? ' complete' : alarm ? ' urgent' : '');
-          btn.textContent = nvt ? 'Geen toevoegingen' : done ? '✓ Toevoegingen' : 'Toevoegingen';
-          if (!nvt) { btn.href = `toevoegingen.html?id=${row.id}`; btn.addEventListener('click', e => e.stopPropagation()); }
-          display.appendChild(btn);
+          if (nvt) {
+            display.className = 'cell-display is-nvt';
+            display.textContent = 'n.v.t.';
+          } else {
+            const btn = document.createElement('a');
+            btn.className = 'info-link-btn toev-col-btn' + (done ? ' complete' : alarm ? ' urgent' : '');
+            btn.textContent = done ? '✓ Toevoegingen' : 'Toevoegingen';
+            btn.href = `toevoegingen.html?id=${row.id}`;
+            btn.addEventListener('click', e => e.stopPropagation());
+            display.appendChild(btn);
+          }
         }
         td.style.cursor = 'default';
       } else if (COL_TYPES[ci] === 'yn') {
@@ -678,13 +590,21 @@ function renderTable() {
     });
 
     const flagTd = document.createElement('td');
-    flagTd.style.cssText = 'padding:0;width:36px;text-align:center;background:inherit;position:sticky;left:36px;z-index:4;';
-    const flagBtn = document.createElement('button'); flagBtn.className = 'flag-btn' + (row.flagged ? ' flagged' : ''); flagBtn.title = 'Markeer';
-    flagBtn.onclick = async e => { e.stopPropagation(); row.flagged = !row.flagged; flagBtn.classList.toggle('flagged', row.flagged); await db.from('dossiers').update({ flagged: row.flagged }).eq('id', row.id); };
+    flagTd.className = 'col-flag-td';
+    flagTd.style.cssText = 'padding:0;width:36px;text-align:center;position:sticky;left:36px;z-index:4;cursor:pointer;transition:background 0.15s;';
+    const flagBtn = document.createElement('button'); flagBtn.className = 'flag-btn';
+    function renderFlag(flagged) {
+      flagBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="pointer-events:none"><path d="M9 2L16.5 15.5H1.5L9 2Z" fill="${flagged ? 'currentColor' : 'none'}" fill-opacity="${flagged ? '0.15' : '0'}" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><rect x="8.25" y="6" width="1.5" height="5" rx="0.75" fill="currentColor"/><circle cx="9" cy="13" r="0.85" fill="currentColor"/></svg>`;
+      flagBtn.classList.toggle('flagged', flagged);
+      flagBtn.title = flagged ? 'Markering verwijderen' : 'Markeren';
+    }
+    renderFlag(row.flagged);
+    flagBtn.onclick = async e => { e.stopPropagation(); row.flagged = !row.flagged; renderFlag(row.flagged); await db.from('dossiers').update({ flagged: row.flagged }).eq('id', row.id); };
     flagTd.appendChild(flagBtn); tr.insertBefore(flagTd, tr.firstChild);
 
     const delTd = document.createElement('td');
-    delTd.style.cssText = 'padding:0 8px;width:36px;text-align:center;background:inherit;';
+    delTd.className = 'col-del';
+    delTd.style.cssText = 'padding:0 8px;width:36px;text-align:center;';
     const delBtn = document.createElement('button'); delBtn.innerHTML = '✕'; delBtn.title = 'Verwijder dossier'; delBtn.className = 'del-btn';
     delBtn.onclick = e => { e.stopPropagation(); openDeleteModal(idx); };
     delTd.appendChild(delBtn); tr.insertBefore(delTd, tr.firstChild);
@@ -736,7 +656,11 @@ function updateCount() {
   const visible = [...document.querySelectorAll('#tableBody tr')].filter(tr => tr.style.display !== 'none' && !tr.querySelector('.empty-state')).length;
   document.getElementById('recordCount').textContent = `${visible} dossier${visible !== 1 ? 's' : ''}`;
 }
-function setFilter(type, btn) { currentFilter = type; document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active')); btn.classList.add('active'); filterRows(); }
+function setFilter(type, btn) {
+  if (currentFilter === type) { currentFilter = 'all'; btn.classList.remove('active'); }
+  else { currentFilter = type; document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+  filterRows();
+}
 function filterRows() {
   const query = document.getElementById('searchInput').value.toLowerCase(); let visible = 0;
   document.querySelectorAll('#tableBody tr').forEach((tr, idx) => { if (idx >= rows.length) return; const hide = shouldHide(rows[idx], query); tr.style.display = hide ? 'none' : ''; if (!hide) visible++; });
