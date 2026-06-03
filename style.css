@@ -495,6 +495,7 @@ header h1 {
   font-family: 'Nunito', sans-serif;
   font-size: 1.02rem; font-weight: 800;
   color: var(--ink); line-height: 1.25; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
 }
 .card-name-second {
   display: block;
@@ -597,7 +598,7 @@ header h1 {
   word-break: break-word;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
-.card-opm.card-opm-empty  { border-top-color: transparent; }
+.card-opm.card-opm-empty  { }
 .card-opm.card-opm-hidden { visibility: hidden; }
 
 /* ══════════════════════════════

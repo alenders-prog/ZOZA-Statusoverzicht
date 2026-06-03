@@ -157,9 +157,10 @@ function getInitialColumn(row) {
   if (!rnee && hasValue(row.docs_verstuurd))                                      return 'advocaat';
   if (hasValue(row.akkoord_klanten))                                              return rnee ? 'afronding' : 'getekend';
   if (hasValue(row.concepten_akkoord))                                            return 'getekend';
-  if (hasValue(row.reactie_ontvangen) || hasValue(row.afspraak))                  return 'concepten';
+  if (hasValue(row.reactie_ontvangen))                                            return 'concepten';
   if (hasValue(row.naar_klanten))                                                 return 'concepten';
   if (!rnee && (hasValue(row.antwoord) || hasValue(row.ter_controle)))            return 'controle';
+  if (hasValue(row.afspraak))                                                     return 'concepten';
   if (hasValue(row.eerste_concept))                                               return rnee ? 'concepten' : 'controle';
   return 'fase1';
 }

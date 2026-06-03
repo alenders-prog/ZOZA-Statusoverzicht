@@ -428,9 +428,10 @@ function getInitialColumn(d) {
   if (!rnee && hasValue(d.docs_verstuurd))                              return 'advocaat';
   if (hasValue(d.akkoord_klanten))                                      return rnee ? 'afronding' : 'getekend';
   if (hasValue(d.concepten_akkoord))                                    return 'getekend';
-  if (hasValue(d.reactie_ontvangen) || hasValue(d.afspraak))              return 'concepten';
+  if (hasValue(d.reactie_ontvangen))                                      return 'concepten';
   if (hasValue(d.naar_klanten))                                         return 'concepten';
   if (!rnee && (hasValue(d.antwoord) || hasValue(d.ter_controle)))        return 'controle';
+  if (hasValue(d.afspraak))                                             return 'concepten';
   if (hasValue(d.eerste_concept))                                       return rnee ? 'concepten' : 'controle';
   return 'fase1';
 }
