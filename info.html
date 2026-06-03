@@ -1071,6 +1071,7 @@ function renderForm() {
         control.appendChild(o);
       });
       control.onchange = () => {
+        const _ov = (infoData._klant || {})['relatie'] || '';
         if (!infoData._klant) infoData._klant = {};
         infoData._klant['relatie'] = control.value;
         if (vormSelect) {
@@ -1078,6 +1079,7 @@ function renderForm() {
           infoData._klant['vorm'] = vormSelect.value;
           applyVormRules(vormSelect.value);
         }
+        logChange(dossierId, statusData.klant || '', 'Relatie', _ov, control.value);
         scheduleSave();
         renderForm();
       };
@@ -1087,9 +1089,11 @@ function renderForm() {
       buildVormOptions(control, klant['relatie'] || '');
       vormSelect = control;
       control.onchange = () => {
+        const _ov = (infoData._klant || {})['vorm'] || '';
         if (!infoData._klant) infoData._klant = {};
         infoData._klant['vorm'] = control.value;
         applyVormRules(control.value);
+        logChange(dossierId, statusData.klant || '', 'Vorm', _ov, control.value);
         scheduleSave();
         renderForm();
       };
@@ -1103,9 +1107,11 @@ function renderForm() {
         control.appendChild(o);
       });
       control.onchange = () => {
+        const _ov = (infoData._klant || {})['bedrijf'] || '';
         if (!infoData._klant) infoData._klant = {};
         infoData._klant['bedrijf'] = control.value;
         applyBedrijfRules(control.value);
+        logChange(dossierId, statusData.klant || '', 'Bedrijf', _ov, control.value);
         scheduleSave();
         renderForm();
       };
@@ -1119,9 +1125,11 @@ function renderForm() {
         control.appendChild(o);
       });
       control.onchange = () => {
+        const _ov = (infoData._klant || {})['woning'] || '';
         if (!infoData._klant) infoData._klant = {};
         infoData._klant['woning'] = control.value;
         applyWoningRules(control.value);
+        logChange(dossierId, statusData.klant || '', 'Woning', _ov, control.value);
         scheduleSave();
         renderForm();
       };
@@ -1135,9 +1143,11 @@ function renderForm() {
         control.appendChild(o);
       });
       control.onchange = () => {
+        const _ov = (infoData._klant || {})['kinderen'] || '';
         if (!infoData._klant) infoData._klant = {};
         infoData._klant['kinderen'] = control.value;
         applyKinderenRules(control.value);
+        logChange(dossierId, statusData.klant || '', 'Kinderen', _ov, control.value);
         scheduleSave();
         renderForm();
       };
@@ -1146,11 +1156,17 @@ function renderForm() {
       control.type = 'text';
       control.value = klant[f.key] || '';
       control.style.cssText = inputStyle;
+      let _klantTextOld = klant[f.key] || '';
+      control.addEventListener('focus', () => { _klantTextOld = (infoData._klant || {})[f.key] || ''; });
       control.oninput = () => {
         if (!infoData._klant) infoData._klant = {};
         infoData._klant[f.key] = control.value;
         scheduleSave();
       };
+      control.addEventListener('blur', () => {
+        const nv = (infoData._klant || {})[f.key] || '';
+        if (nv !== _klantTextOld) { logChange(dossierId, statusData.klant || '', f.label, _klantTextOld, nv); _klantTextOld = nv; }
+      });
     }
 
     valTd.appendChild(control);
@@ -1224,10 +1240,12 @@ function renderForm() {
     });
     if (isScheideOfBlijven) { sel.disabled = true; sel.style.opacity = '0.5'; }
     sel.onchange = () => {
+      const _ov = (infoData._dienstverlening || {})[f.key] || '';
       if (!infoData._dienstverlening) infoData._dienstverlening = {};
       infoData._dienstverlening[f.key] = sel.value;
       if (f.key === 'type')      { applyTypeRules(sel.value);             renderForm(); }
       if (f.key === 'rechtbank') { applyDienstvRechtbankRules(sel.value); renderForm(); }
+      logChange(dossierId, statusData.klant || '', f.label, _ov, sel.value);
       scheduleSave();
     };
     valTd.appendChild(sel);
@@ -1308,7 +1326,9 @@ function renderForm() {
         btn.onclick = () => {
           delete infoData._nvt;
           if (!infoData[f.key]) infoData[f.key] = { b: d.b, a: d.a };
+          const _ov = infoData[f.key][field];
           infoData[f.key][field] = infoData[f.key][field] === 1 ? 0 : 1;
+          logChange(dossierId, statusData.klant || '', `${f.label} – ${field === 'b' ? 'Benodigd' : 'Ontvangen'}`, String(_ov), String(infoData[f.key][field]));
           updateToggleClasses();
           if (document.querySelector('#mainContent .nvt-banner')) renderForm();
           scheduleSave();
