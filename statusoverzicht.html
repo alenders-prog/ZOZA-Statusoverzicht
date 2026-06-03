@@ -122,7 +122,7 @@ thead tr.col-row th.ph-blank { background: var(--orange) !important; border-bott
           <th class="ph-blank" style="width:36px;position:sticky;left:0;z-index:12;"></th>
           <th class="ph-blank" style="width:36px;position:sticky;left:36px;z-index:12;"></th>
           <th class="ph-blank" style="min-width:150px;position:sticky;left:72px;z-index:12;"></th>
-          <th class="ph-a" id="ph-header-pha" colspan="7" onclick="togglePhase('pha')" title="Klik om in/uit te klappen">Klanten 1e fase</th>
+          <th class="ph-a" id="ph-header-pha" colspan="6" onclick="togglePhase('pha')" title="Klik om in/uit te klappen">Klanten 1e fase</th>
           <th class="ph2" id="ph-header-phc" colspan="3" onclick="togglePhase('phc')" title="Klik om in/uit te klappen">Controle Advocaat</th>
           <th class="ph-c" id="ph-header-ph2" colspan="3" onclick="togglePhase('ph2')" title="Klik om in/uit te klappen">Klanten concepten</th>
           <th class="ph-g" id="ph-header-phg" colspan="3" onclick="togglePhase('phg')" title="Klik om in/uit te klappen">Getekend</th>
@@ -142,36 +142,35 @@ thead tr.col-row th.ph-blank { background: var(--orange) !important; border-bott
           <th class="ch-a" data-phase="pha" onclick="sortTable(3)">Factuur betaald</th>
           <th class="ch-a" data-phase="pha" onclick="sortTable(4)">Datum Afspraak</th>
           <th class="ch-a" data-phase="pha" onclick="sortTable(5)">Actie voor</th>
-          <th class="ch-a" data-phase="pha" onclick="sortTable(6)">1e concept</th>
           <th class="phase-placeholder-th" data-phase="pha" style="display:none"></th>
-          <th class="ch2" data-phase="phc" onclick="sortTable(7)">Ter controle</th>
-          <th class="ch2" data-phase="phc" onclick="sortTable(8)">Antwoord</th>
-          <th class="ch2" data-phase="phc" onclick="sortTable(9)">Verwerkt</th>
+          <th class="ch2" data-phase="phc" onclick="sortTable(6)">Ter controle</th>
+          <th class="ch2" data-phase="phc" onclick="sortTable(7)">Antwoord</th>
+          <th class="ch2" data-phase="phc" onclick="sortTable(8)">Verwerkt</th>
           <th class="phase-placeholder-th" data-phase="phc" style="display:none"></th>
-          <th class="ch-c" data-phase="ph2" onclick="sortTable(10)">Concepten verstuurd</th>
-          <th class="ch-c" data-phase="ph2" onclick="sortTable(11)">Reactie ontvangen</th>
-          <th class="ch-c" data-phase="ph2" onclick="sortTable(12)">Concepten akkoord</th>
+          <th class="ch-c" data-phase="ph2" onclick="sortTable(9)">Concepten verstuurd</th>
+          <th class="ch-c" data-phase="ph2" onclick="sortTable(10)">Reactie ontvangen</th>
+          <th class="ch-c" data-phase="ph2" onclick="sortTable(11)">Concepten akkoord</th>
           <th class="phase-placeholder-th" data-phase="ph2" style="display:none"></th>
-          <th class="ch-g" data-phase="phg" onclick="sortTable(13)">Klanten getekend</th>
-          <th class="ch-g" data-phase="phg" onclick="sortTable(14)">Aktes compleet</th>
-          <th class="ch-g" data-phase="phg" onclick="sortTable(15)">Verstuurd Advocaat</th>
+          <th class="ch-g" data-phase="phg" onclick="sortTable(12)">Klanten getekend</th>
+          <th class="ch-g" data-phase="phg" onclick="sortTable(13)">Aktes compleet</th>
+          <th class="ch-g" data-phase="phg" onclick="sortTable(14)">Verstuurd Advocaat</th>
           <th class="phase-placeholder-th" data-phase="phg" style="display:none"></th>
-          <th class="ch3" data-phase="ph3" onclick="sortTable(16)">Belafspraak</th>
-          <th class="ch3" data-phase="ph3" onclick="sortTable(17)">Rechtbank</th>
+          <th class="ch3" data-phase="ph3" onclick="sortTable(15)">Belafspraak</th>
+          <th class="ch3" data-phase="ph3" onclick="sortTable(16)">Rechtbank</th>
           <th class="phase-placeholder-th" data-phase="ph3" style="display:none"></th>
-          <th class="ch-rb" data-phase="phrb" onclick="sortTable(18)">Beschikking</th>
-          <th class="ch-rb" data-phase="phrb" onclick="sortTable(19)">Verstuurd klanten</th>
-          <th class="ch-rb" data-phase="phrb" onclick="sortTable(20)">Akkoord klanter</th>
+          <th class="ch-rb" data-phase="phrb" onclick="sortTable(17)">Beschikking</th>
+          <th class="ch-rb" data-phase="phrb" onclick="sortTable(18)">Verstuurd klanten</th>
+          <th class="ch-rb" data-phase="phrb" onclick="sortTable(19)">Akkoord klanter</th>
           <th class="phase-placeholder-th" data-phase="phrb" style="display:none"></th>
-          <th class="ch4" data-phase="ph4" onclick="sortTable(21)">Verstuurd gemeente</th>
-          <th class="ch4" data-phase="ph4" onclick="sortTable(22)">Inschrijving ontvangen</th>
+          <th class="ch4" data-phase="ph4" onclick="sortTable(20)">Verstuurd gemeente</th>
+          <th class="ch4" data-phase="ph4" onclick="sortTable(21)">Inschrijving ontvangen</th>
           <th class="phase-placeholder-th" data-phase="ph4" style="display:none"></th>
-          <th class="ch5" data-phase="ph5" onclick="sortTable(23)">Ingelicht en beeindigd</th>
-          <th class="ch5" data-phase="ph5" onclick="sortTable(24)">Vergoeding aangevraagd</th>
-          <th class="ch5" data-phase="ph5" onclick="sortTable(25)">Vergoeding ontvangen</th>
-          <th class="ch5" data-phase="ph5" onclick="sortTable(26)">ZOZA afgerond</th>
+          <th class="ch5" data-phase="ph5" onclick="sortTable(22)">Ingelicht en beeindigd</th>
+          <th class="ch5" data-phase="ph5" onclick="sortTable(23)">Vergoeding aangevraagd</th>
+          <th class="ch5" data-phase="ph5" onclick="sortTable(24)">Vergoeding ontvangen</th>
+          <th class="ch5" data-phase="ph5" onclick="sortTable(25)">ZOZA afgerond</th>
           <th class="phase-placeholder-th" data-phase="ph5" style="display:none"></th>
-          <th class="ch-o" id="ch-opmerkingen" data-phase="pho" onclick="sortTable(27)">Opmerkingen</th>
+          <th class="ch-o" id="ch-opmerkingen" data-phase="pho" onclick="sortTable(26)">Opmerkingen</th>
           <th class="phase-placeholder-th" data-phase="pho" style="display:none"></th>
         </tr>
       </thead>
@@ -201,14 +200,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const COL_TYPES = ['text','toevoeging_btn','yn','yn','date','date','date','date','date','date','date','date','date','date','yn','date','date','date','date','date','date','date','date','date','date','date','date','text'];
-const COL_KEYS  = ['klant','toevoeging_btn','gemaild','factuur_betaald','datum_afspraak','actie_voor','eerste_concept','ter_controle','antwoord','naar_klanten','afspraak','reactie_ontvangen','concepten_akkoord','akkoord_klanten','docs_compleet','docs_verstuurd','belafspraak','rechtbank','beschikking','verstuurd_klanten','akkoord_klanter','verstuurd_gemeente','inschrijving_ontvangen','beeindigd','vergoeding_aangevraagd','vergoeding_ontvangen','zoza_afgerond','opmerkingen'];
+const COL_TYPES = ['text','toevoeging_btn','yn','yn','date','date','date','date','date','date','date','date','date','yn','date','date','date','date','date','date','date','date','date','date','date','date','text'];
+const COL_KEYS  = ['klant','toevoeging_btn','gemaild','factuur_betaald','datum_afspraak','actie_voor','ter_controle','antwoord','naar_klanten','afspraak','reactie_ontvangen','concepten_akkoord','akkoord_klanten','docs_compleet','docs_verstuurd','belafspraak','rechtbank','beschikking','verstuurd_klanten','akkoord_klanter','verstuurd_gemeente','inschrijving_ontvangen','beeindigd','vergoeding_aangevraagd','vergoeding_ontvangen','zoza_afgerond','opmerkingen'];
 
-const PHASE_COLS = { pha:[1,2,3,4,5,6], phc:[7,8,9], ph2:[10,11,12], phg:[13,14,15], ph3:[16,17], phrb:[18,19,20], ph4:[21,22], ph5:[23,24,25,26], pho:[27] };
-const PHASE_COLSPAN_NORMAL    = { pha:7, phc:3, ph2:3, phg:3, ph3:2, phrb:3, ph4:2, ph5:4, pho:1 };
+const PHASE_COLS = { pha:[1,2,3,4,5], phc:[6,7,8], ph2:[9,10,11], phg:[12,13,14], ph3:[15,16], phrb:[17,18,19], ph4:[20,21], ph5:[22,23,24,25], pho:[26] };
+const PHASE_COLSPAN_NORMAL    = { pha:6, phc:3, ph2:3, phg:3, ph3:2, phrb:3, ph4:2, ph5:4, pho:1 };
 const PHASE_COLSPAN_COLLAPSED = { pha:2, phc:1, ph2:1, phg:1, ph3:1, phrb:1, ph4:1, ph5:1, pho:1 };
-const PHASE_END = { pha:6, phc:9, ph2:12, phg:15, ph3:17, phrb:20, ph4:22, ph5:26, pho:27 };
-const CI_TO_PHASE = {1:'pha',2:'pha',3:'pha',4:'pha',5:'pha',6:'pha',7:'phc',8:'phc',9:'phc',10:'ph2',11:'ph2',12:'ph2',13:'phg',14:'phg',15:'phg',16:'ph3',17:'ph3',18:'phrb',19:'phrb',20:'phrb',21:'ph4',22:'ph4',23:'ph5',24:'ph5',25:'ph5',26:'ph5',27:'pho'};
+const PHASE_END = { pha:5, phc:8, ph2:11, phg:14, ph3:16, phrb:19, ph4:21, ph5:25, pho:26 };
+const CI_TO_PHASE = {1:'pha',2:'pha',3:'pha',4:'pha',5:'pha',6:'phc',7:'phc',8:'phc',9:'ph2',10:'ph2',11:'ph2',12:'phg',13:'phg',14:'phg',15:'ph3',16:'ph3',17:'phrb',18:'phrb',19:'phrb',20:'ph4',21:'ph4',22:'ph5',23:'ph5',24:'ph5',25:'ph5',26:'pho'};
 
 let collapsedPhases = new Set(JSON.parse(localStorage.getItem('collapsedPhases') || '[]'));
 let rows = [], sortCol = -1, sortDir = 1, currentFilter = 'all', rowToDelete = null, saveTimer = null;
@@ -372,10 +371,10 @@ function refreshAllAlarms(tr, row, key) {
   if (key === 'datum_afspraak') refreshInfoUrgent(tr, row);
   if (key === 'afspraak' || key === 'reactie_ontvangen') refreshAlarm(tr, row, 'reactie_ontvangen', isReactieOverdue);
   if (key === 'reactie_ontvangen' || key === 'concepten_akkoord') refreshAlarm(tr, row, 'concepten_akkoord', isConceptenAkkoordOverdue);
-  if (key === 'eerste_concept' || key === 'ter_controle') refreshAlarm(tr, row, 'ter_controle', isTerControleOverdue);
+  if (key === 'ter_controle') refreshAlarm(tr, row, 'ter_controle', isTerControleOverdue);
   if (key === 'ter_controle' || key === 'antwoord') refreshAlarm(tr, row, 'antwoord', isAntwoordOverdue);
   if (key === 'antwoord' || key === 'naar_klanten') refreshAlarm(tr, row, 'naar_klanten', isNaarKlantenOverdue);
-  if (key === 'naar_klanten' || key === 'eerste_concept' || key === 'afspraak') refreshAlarm(tr, row, 'afspraak', isAfspraakOverdue);
+  if (key === 'naar_klanten' || key === 'afspraak') refreshAlarm(tr, row, 'afspraak', isAfspraakOverdue);
   if (key === 'concepten_akkoord' || key === 'akkoord_klanten') refreshAlarm(tr, row, 'akkoord_klanten', isAkkoordKlantenOverdue);
   if (key === 'akkoord_klanten' || key === 'docs_verstuurd') refreshAlarm(tr, row, 'docs_verstuurd', isDocsVerstuurdOverdue);
   if (key === 'akkoord_klanten') refreshDocsUrgent(tr, row);
@@ -716,7 +715,7 @@ document.getElementById('deleteModal').addEventListener('click', e => { if (e.ta
 
 // ── EXPORT ──
 function exportCSV() {
-  const headers = ['Klant','Toevoegingen','Klant gemaild','Factuur betaald','Datum afspraak','Actie voor','1e concept','Ter controle','Antwoord','Verwerkt','Concepten verstuurd','Reactie ontvangen','Concepten akkoord','Klanten getekend','Aktes compleet','Verstuurd Advocaat','Belafspraak','Rechtbank','Beschikking','Verstuurd klanten','Akkoord klanter','Verstuurd gemeente','Inschrijving ontvangen','Beeindigd','Vergoeding aangevraagd','Vergoeding ontvangen','ZOZA afgerond','Opmerkingen'];
+  const headers = ['Klant','Toevoegingen','Klant gemaild','Factuur betaald','Datum afspraak','Actie voor','Ter controle','Antwoord','Verwerkt','Concepten verstuurd','Reactie ontvangen','Concepten akkoord','Klanten getekend','Aktes compleet','Verstuurd Advocaat','Belafspraak','Rechtbank','Beschikking','Verstuurd klanten','Akkoord klanter','Verstuurd gemeente','Inschrijving ontvangen','Beeindigd','Vergoeding aangevraagd','Vergoeding ontvangen','ZOZA afgerond','Opmerkingen'];
   const csv = [headers.join(';'), ...rows.map(r => COL_KEYS.map(k => `"${(r[k]||'').toString().replace(/"/g,'""')}"`).join(';'))].join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `statusoverzicht_${new Date().toISOString().slice(0,10)}.csv`; a.click();

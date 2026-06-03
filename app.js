@@ -40,7 +40,6 @@ const COLUMN_FIELDS = {
       { key: 'bevestigd', type: 'toevoeging_info_btn' },
       { label: 'Klant gemaild',  key: 'gemaild',         type: 'yn'   },
       { label: 'Actie voor',     key: 'actie_voor',       type: 'date' },
-      { label: '1e concept',     key: 'eerste_concept',   type: 'date' },
     ],
     hasOpm: true,
   },
@@ -167,8 +166,10 @@ function getInitialColumn(row) {
 
 function getColumn(row) {
   if (hasValue(row.zoza_afgerond) && computeHypFee(row) !== null) return 'afgerond';
-  if (isRechtbankNee(row)) return getInitialColumn(row);
-  return row.kanban_column || getInitialColumn(row);
+  return getInitialColumn(row);
+  // Manual drag-and-drop override disabled — re-enable the lines below to restore it:
+  // if (isRechtbankNee(row)) return getInitialColumn(row);
+  // return row.kanban_column || getInitialColumn(row);
 }
 
 // ── ALARM CHECKS ──
@@ -496,6 +497,8 @@ function renderBoard() {
     cardsWrap.addEventListener('drop', async e => {
       e.preventDefault();
       cardsWrap.classList.remove('drag-over');
+      // Manual phase move disabled — remove the block comment below to re-enable:
+      /*
       if (!dragRowId) return;
       const row = rows.find(r => r.id === dragRowId);
       if (!row || getColumn(row) === col.id) return;
@@ -504,6 +507,7 @@ function renderBoard() {
       logChange(row.id, row.klant, 'Fase', COLUMN_LABELS[oldCol] || oldCol, COLUMN_LABELS[col.id] || col.id, 'Verplaatst');
       renderBoard();
       await db.from('dossiers').update({ kanban_column: col.id }).eq('id', row.id);
+      */
     });
 
     if (colRows.length === 0) {
@@ -518,7 +522,20 @@ function renderBoard() {
     colEl.appendChild(cardsWrap);
     board.appendChild(colEl);
   });
-  requestAnimationFrame(syncKanbanScroll);
+  requestAnimationFrame(() => {
+    syncKanbanScroll();
+    equalizeCardHeights();
+  });
+}
+
+function equalizeCardHeights() {
+  document.querySelectorAll('.kanban-cards').forEach(col => {
+    const cards = [...col.querySelectorAll('.card')];
+    if (cards.length < 2) return;
+    cards.forEach(c => c.style.minHeight = ''); // reset to measure natural height
+    const max = Math.max(...cards.map(c => c.offsetHeight));
+    cards.forEach(c => c.style.minHeight = max + 'px');
+  });
 }
 
 function syncKanbanScroll() {
@@ -605,10 +622,9 @@ function renderCard(row, col) {
   headerRow.appendChild(badges);
   topArea.appendChild(headerRow);
 
-  // ── Column-specific field rows (always padded to MAX_FIELDS) ──
+  // ── Column-specific field rows ──
   const colDef = COLUMN_FIELDS[col.id] || { fields: [], hasOpm: false };
   const padded = colDef.fields.slice();
-  while (padded.length < MAX_FIELDS) padded.push(null);
 
   const fieldsWrap = document.createElement('div');
   fieldsWrap.className = 'card-fields';

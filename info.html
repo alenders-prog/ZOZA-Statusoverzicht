@@ -310,9 +310,8 @@ function applyDefaultBenodigd() {
 
 const STATUS_SECTIONS = [
   { title: 'Klanten 1e fase', color: '#F7931E', fields: [
-    { key: 'gemaild',       label: 'Klant gemaild',          type: 'yn'   },
-    { key: 'actie_voor',     label: 'Actie voor',   type: 'date' },
-    { key: 'eerste_concept', label: '1e concept',   type: 'date' },
+    { key: 'gemaild',    label: 'Klant gemaild', type: 'yn'   },
+    { key: 'actie_voor', label: 'Actie voor',    type: 'date' },
   ]},
   { title: 'Controle Advocaat', color: '#2D6AA0', fields: [
     { key: 'ter_controle', label: 'Ter controle', type: 'date' },
@@ -437,7 +436,8 @@ function getInitialColumn(d) {
 }
 
 function getCurrentPhaseIndex(data) {
-  const colId = isRechtbankNeeInfo() ? getInitialColumn(data) : (data.kanban_column || getInitialColumn(data));
+  const colId = getInitialColumn(data); // always use built-in logic, same as kanban
+  // Manual override disabled — to re-enable: isRechtbankNeeInfo() ? getInitialColumn(data) : (data.kanban_column || getInitialColumn(data))
   const idx = PHASE_COLUMN_IDS.indexOf(colId);
   return idx >= 0 ? idx : 0;
 }
