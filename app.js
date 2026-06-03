@@ -481,7 +481,9 @@ function renderBoard() {
       if (!dragRowId) return;
       const row = rows.find(r => r.id === dragRowId);
       if (!row || getColumn(row) === col.id) return;
+      const oldCol = getColumn(row);
       row.kanban_column = col.id;
+      logChange(row.id, row.klant, 'Fase', COLUMN_LABELS[oldCol] || oldCol, COLUMN_LABELS[col.id] || col.id, 'Verplaatst');
       renderBoard();
       await db.from('dossiers').update({ kanban_column: col.id }).eq('id', row.id);
     });
@@ -776,6 +778,51 @@ function filterCards(query) {
       if (badge) badge.textContent = visible;
     }
   });
+
+  if (q) scrollToSearchResults(); else scrollBoardTo(0);
+}
+
+function scrollToSearchResults() {
+  requestAnimationFrame(() => {
+    const board = document.getElementById('kanbanBoard');
+    if (!board) return;
+
+    const colEls = [...board.querySelectorAll('.kanban-col')];
+    const visibleCols = colEls.filter(col =>
+      [...col.querySelectorAll('.card')].some(c => c.style.display !== 'none')
+    );
+    if (visibleCols.length === 0) return;
+
+    const boardRect    = board.getBoundingClientRect();
+    const scrollLeft   = board.scrollLeft;
+    const clientWidth  = board.clientWidth;
+    const pad          = 28; // matches kanban-wrapper side padding
+
+    const leftRect  = visibleCols[0].getBoundingClientRect();
+    const rightRect = visibleCols[visibleCols.length - 1].getBoundingClientRect();
+
+    // Positions in scroll-space
+    const leftEdge  = leftRect.left  - boardRect.left + scrollLeft;
+    const rightEdge = rightRect.right - boardRect.left + scrollLeft;
+
+    // Ideal: align rightmost result to right edge (with padding)
+    const desiredScroll = rightEdge + pad - clientWidth;
+
+    // Clamp: leftmost result must stay on-screen (with padding)
+    const maxScroll = leftEdge - pad;
+
+    const finalScroll = Math.max(0, Math.min(desiredScroll, maxScroll));
+    scrollBoardTo(finalScroll);
+  });
+}
+
+function scrollBoardTo(target) {
+  const board  = document.getElementById('kanbanBoard');
+  const slider = document.getElementById('kanbanScroller');
+  if (!board) return;
+  board.scrollTo({ left: target, behavior: 'smooth' });
+  // Keep the range slider in sync after the animation finishes
+  setTimeout(syncKanbanScroll, 350);
 }
 
 // ── FLAG ──
@@ -825,6 +872,7 @@ async function addRow() {
     showToast('Aanmaken mislukt');
     return;
   }
+  logChange(data.id, '', 'Dossier', '', 'Nieuw dossier aangemaakt', 'Aangemaakt');
   window.location.href = `info.html?id=${data.id}`;
 }
 
@@ -861,6 +909,7 @@ async function enterApp(user) {
   document.getElementById('loadingOverlay').style.display = 'flex';
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('userEmail').textContent = user.email;
+  window._clUser = user.email;
 
   alarmSettings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
   try {

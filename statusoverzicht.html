@@ -87,6 +87,7 @@ thead tr.col-row th.ph-blank { background: var(--orange) !important; border-bott
       <div class="header-actions">
         <span id="userEmail"></span>
         <button class="btn btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="btn btn-ghost" onclick="window.location.href='changelog.html'">Wijzigingen</button>
         <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
         <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
         <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
@@ -192,6 +193,7 @@ thead tr.col-row th.ph-blank { background: var(--orange) !important; border-bott
   </div>
 </div>
 
+<script src="changelog.js"></script>
 <script>
 const SUPABASE_URL      = 'https://iubmajperipojqtlhwqk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Ym1hanBlcmlwb2pxdGxod3FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODM2MzcsImV4cCI6MjA5NDA1OTYzN30.IiUQAGO9rFuSC2LQlFr6dzmQPatCS-N7mjZdJzEQRNs';
@@ -293,6 +295,7 @@ async function enterApp(user) {
   document.getElementById('loadingOverlay').style.display = 'flex';
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('userEmail').textContent = user.email;
+  window._clUser = user.email;
   alarmSettings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
   try {
     const { data: alarmData } = await db.from('alarmsettings').select('settings').eq('id', 'main').maybeSingle();
@@ -514,9 +517,11 @@ function renderTable() {
         control.innerHTML = '<option value="">—</option><option value="ja">Ja</option><option value="nee">Nee</option>';
         control.value = val;
         control.onchange = () => {
+          const _ov = rows[idx][key] || '';
           rows[idx][key] = control.value; display.textContent = formatDisplay(control.value, ci);
           display.className = 'cell-display' + (control.value ? '' : ' empty');
           if (key === 'gemaild') td.classList.toggle('gemaild-nee', control.value === 'nee');
+          logChange(rows[idx].id, rows[idx].klant, FIELD_LABELS[key] || key, _ov, control.value || '');
           scheduleSave(rows[idx]);
         };
         control.onblur = () => exitEdit(td);
@@ -524,15 +529,19 @@ function renderTable() {
         control = document.createElement('input'); control.type = 'date';
         control.value = val === 'n.v.t.' ? new Date().toISOString().slice(0, 10) : val;
         control.onchange = () => {
+          const _ov = rows[idx][key] || '';
           rows[idx][key] = control.value; display.textContent = formatDisplay(control.value, ci);
           display.className = 'cell-display' + (control.value ? '' : ' empty');
+          logChange(rows[idx].id, rows[idx].klant, FIELD_LABELS[key] || key, _ov, control.value || '');
           refreshAllAlarms(tr, rows[idx], key); scheduleSave(rows[idx]); exitEdit(td);
         };
         let nvtJustClicked = false;
         control.onblur = () => {
           if (nvtJustClicked) { nvtJustClicked = false; exitEdit(td); return; }
           if (!control.value && rows[idx][key]) {
+            const _ov = rows[idx][key];
             rows[idx][key] = ''; display.textContent = ''; display.className = 'cell-display empty';
+            logChange(rows[idx].id, rows[idx].klant, FIELD_LABELS[key] || key, _ov, '');
             refreshAllAlarms(tr, rows[idx], key); scheduleSave(rows[idx]);
           }
           exitEdit(td);
@@ -541,8 +550,10 @@ function renderTable() {
         const nvtBtn = document.createElement('button'); nvtBtn.className = 'nvt-btn'; nvtBtn.textContent = 'n.v.t.';
         nvtBtn.onmousedown = e => e.preventDefault();
         nvtBtn.onclick = e => {
+          const _ov = rows[idx][key] || '';
           e.stopPropagation(); nvtJustClicked = true; rows[idx][key] = 'n.v.t.';
           display.textContent = 'n.v.t.'; display.className = 'cell-display'; exitEdit(td);
+          logChange(rows[idx].id, rows[idx].klant, FIELD_LABELS[key] || key, _ov, 'n.v.t.');
           refreshAllAlarms(tr, rows[idx], key);
           scheduleSave(rows[idx]);
         };
@@ -551,8 +562,15 @@ function renderTable() {
       } else {
         control = document.createElement('input'); control.type = 'text'; control.value = val;
         if (ci === 27) control.style.minWidth = '180px';
+        let _textOldVal = val;
         control.oninput = () => { rows[idx][key] = control.value; display.textContent = formatDisplay(control.value, ci); display.className = 'cell-display' + (control.value ? '' : ' empty'); scheduleSave(rows[idx]); };
-        control.onblur = () => exitEdit(td);
+        control.onblur = () => {
+          if ((rows[idx][key] || '') !== _textOldVal) {
+            logChange(rows[idx].id, rows[idx].klant, FIELD_LABELS[key] || key, _textOldVal, rows[idx][key] || '');
+            _textOldVal = rows[idx][key] || '';
+          }
+          exitEdit(td);
+        };
         control.onkeydown = e => { if (e.key === 'Enter' || e.key === 'Escape') control.blur(); };
       }
 
@@ -560,6 +578,7 @@ function renderTable() {
         if (dateWrap) td.appendChild(dateWrap); else td.appendChild(control);
         td.onclick = () => {
           if (ci === 0) { if (row.id) window.location.href = `info.html?id=${row.id}&tab=klantstatus`; return; }
+          if (COL_TYPES[ci] === 'text') { control._logOld = rows[idx][key] || ''; }
           document.querySelectorAll('td.editing-cell').forEach(o => { if (o !== td) exitEdit(o); });
           td.classList.add('editing-cell');
           if (COL_TYPES[ci] === 'date' && dateWrap) {
@@ -682,7 +701,14 @@ function sortTable(col) {
 function openDeleteModal(idx) { rowToDelete = idx; document.getElementById('deleteModal').classList.add('open'); }
 function closeDeleteModal() { rowToDelete = null; document.getElementById('deleteModal').classList.remove('open'); }
 async function confirmDelete() {
-  if (rowToDelete !== null) { const row = rows[rowToDelete]; if (row.id) await deleteRow(row.id); rows.splice(rowToDelete, 1); renderTable(); showToast('Dossier verwijderd'); }
+  if (rowToDelete !== null) {
+    const row = rows[rowToDelete];
+    if (row.id) {
+      logChange(row.id, row.klant || '', 'Dossier', row.klant || '', '', 'Verwijderd');
+      await deleteRow(row.id);
+    }
+    rows.splice(rowToDelete, 1); renderTable(); showToast('Dossier verwijderd');
+  }
   closeDeleteModal();
 }
 document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });

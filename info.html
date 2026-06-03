@@ -222,6 +222,7 @@ main { padding: 28px 32px; display: none; }
 
 <main id="mainContent"></main>
 
+<script src="changelog.js"></script>
 <script>
 const SUPABASE_URL      = 'https://iubmajperipojqtlhwqk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Ym1hanBlcmlwb2pxdGxod3FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODM2MzcsImV4cCI6MjA5NDA1OTYzN30.IiUQAGO9rFuSC2LQlFr6dzmQPatCS-N7mjZdJzEQRNs';
@@ -472,7 +473,24 @@ function propagateToevoegingNvt() {
   refreshStatusAlarms();
 }
 
+// Build label map from STATUS_SECTIONS for changelog
+const STATUS_FIELD_LABELS = {};
+STATUS_SECTIONS.forEach(sec => sec.fields.forEach(f => { STATUS_FIELD_LABELS[f.key] = f.label; }));
+Object.assign(STATUS_FIELD_LABELS, {
+  opmerkingen:    'Opmerkingen',
+  toevoeging_a:   'Toevoeging persoon A',
+  toevoeging_b:   'Toevoeging persoon B',
+  bevestigd_a:    'Bevestigd toevoeging A',
+  bevestigd_b:    'Bevestigd toevoeging B',
+  aangevraagd_a:  'Aangevraagd toevoeging A',
+  aangevraagd_b:  'Aangevraagd toevoeging B',
+});
+
 function saveStatusField(key, value) {
+  if (key !== 'opmerkingen_gewijzigd') {
+    const label = STATUS_FIELD_LABELS[key] || FIELD_LABELS[key];
+    if (label) logChange(dossierId, statusData.klant || '', label, statusData[key] == null ? '' : String(statusData[key]), value == null ? '' : String(value));
+  }
   statusData[key] = value;
   refreshStatusAlarms();
   statusSaveQueue[key] = value;
@@ -1376,6 +1394,8 @@ async function init() {
     infoData = isNew ? {} : JSON.parse(data.info_data);
     statusData = data;
     alarmSettings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
+    // Set current user for changelog
+    try { const { data: { session } } = await db.auth.getSession(); if (session) window._clUser = session.user.email; } catch(e) {}
 
     if (isNew) { applyDefaultBenodigd(); await save(); }
     renderForm();
@@ -1399,6 +1419,7 @@ function confirmDelete() {
   document.getElementById('undoToast').classList.add('show');
   deleteTimer = setTimeout(async () => {
     document.getElementById('undoToast').classList.remove('show');
+    logChange(dossierId, statusData.klant || '', 'Dossier', statusData.klant || '', '', 'Verwijderd');
     const { error } = await db.from('dossiers').delete().eq('id', dossierId);
     if (error) { alert('Verwijderen mislukt: ' + error.message); return; }
     window.location.href = 'index.html';

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wijzigingen</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.cl-scroll {
+  overflow-x: auto; overflow-y: auto;
+  max-height: calc(100vh - 155px);
+  padding-bottom: 20px;
+}
+.cl-table {
+  border-collapse: separate; border-spacing: 0;
+  width: max-content; min-width: 100%;
+}
+.cl-table thead th {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.65rem; font-weight: 800;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 8px 12px; white-space: nowrap;
+  background: var(--orange-soft); color: var(--orange-dark);
+  border-bottom: 2px solid var(--orange);
+  position: sticky; top: 0; z-index: 5;
+  cursor: pointer; user-select: none;
+  transition: filter 0.12s;
+}
+.cl-table thead th:hover { filter: brightness(0.93); }
+.cl-table thead th.sorted-asc::after  { content: ' ↑'; }
+.cl-table thead th.sorted-desc::after { content: ' ↓'; }
+.cl-table td {
+  padding: 7px 12px; border-bottom: 1px solid var(--grey-rule);
+  font-size: 0.78rem; font-weight: 600; vertical-align: middle;
+  color: var(--ink); white-space: nowrap;
+}
+.cl-table tbody tr:nth-child(even) td { background: #FAFAFA; }
+.cl-table tbody tr:hover td { background: var(--orange-soft); }
+.cl-table td.td-datetime { color: var(--grey-text); font-size: 0.72rem; min-width: 140px; }
+.cl-table td.td-dossier  { font-weight: 700; min-width: 160px; }
+.cl-table td.td-dossier a { color: var(--orange-dark); text-decoration: none; }
+.cl-table td.td-dossier a:hover { text-decoration: underline; }
+.cl-table td.td-field    { color: var(--grey-text); min-width: 160px; }
+.cl-table td.td-old      { color: #B83518; min-width: 140px; max-width: 260px; white-space: normal; word-break: break-word; }
+.cl-table td.td-new      { color: var(--green); min-width: 140px; max-width: 260px; white-space: normal; word-break: break-word; }
+.cl-table td.td-user     { color: var(--grey); font-size: 0.72rem; min-width: 160px; }
+.cl-table td.td-empty    { color: var(--grey); font-style: italic; }
+
+.action-badge {
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em;
+  padding: 2px 9px; border-radius: 20px; text-transform: uppercase;
+  display: inline-block; white-space: nowrap;
+}
+.action-badge.Bewerkt    { background: #DEEAF6; color: #2D6AA0; }
+.action-badge.Aangemaakt { background: var(--green-soft); color: var(--green); }
+.action-badge.Verwijderd { background: #F5DDD7; color: #B83518; }
+.action-badge.Verplaatst { background: #EAE0F6; color: #6D4A9C; }
+
+.load-more-wrap { text-align: center; padding: 14px; }
+.load-more-btn {
+  padding: 8px 28px;
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 700;
+  background: var(--white); border: 1.5px solid var(--grey-rule); border-radius: 20px;
+  color: var(--grey-text); cursor: pointer; letter-spacing: 0.02em;
+  transition: all 0.15s;
+}
+.load-more-btn:hover { border-color: var(--orange); color: var(--orange); }
+.load-more-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.date-input-sm {
+  font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 600;
+  padding: 5px 10px; border: 1.5px solid var(--grey-rule); border-radius: 20px;
+  background: var(--white); color: var(--ink); outline: none;
+  transition: border-color 0.15s; cursor: pointer;
+}
+.date-input-sm:focus { border-color: var(--orange); }
+.date-label { font-size: 0.65rem; font-weight: 700; color: var(--grey); letter-spacing: 0.04em; text-transform: uppercase; }
+.date-filter-group { display: flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+    </div>
+    <h1>Statusoverzicht</h1>
+    <p class="subtitle">Dossier Beheer</p>
+    <label for="emailInput">E-mailadres</label>
+    <input type="email" id="emailInput" placeholder="naam@kantoor.nl" autocomplete="email">
+    <label for="passwordInput">Wachtwoord</label>
+    <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password">
+    <button class="login-btn" id="loginBtn" onclick="signIn()">Inloggen</button>
+    <p class="login-msg" id="loginMsg"></p>
+  </div>
+</div>
+
+<div id="appScreen">
+  <header>
+    <div class="header-inner">
+      <div class="logo-wrap">
+        <svg class="header-logo" viewBox="0 0 100 100" fill="none">
+          <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+          <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+          <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+          <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+        </svg>
+      </div>
+      <div class="page-title">
+        <h1>Wijzigingen</h1>
+        <span class="header-subtitle">Logboek</span>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
+        <button class="btn btn-ghost" onclick="history.back()">← Terug</button>
+        <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
+      <input type="text" id="searchInput" placeholder="Zoek op dossier, veld of gebruiker..."
+        oninput="applyFilters(); document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+      <button id="searchClear" class="search-clear" style="display:none"
+        onclick="document.getElementById('searchInput').value=''; applyFilters(); this.style.display='none'; document.getElementById('searchInput').focus()">×</button>
+    </div>
+    <select class="toolbar-sort" id="actionFilter" onchange="applyFilters()">
+      <option value="">Alle acties</option>
+      <option value="Bewerkt">Bewerkt</option>
+      <option value="Aangemaakt">Aangemaakt</option>
+      <option value="Verwijderd">Verwijderd</option>
+      <option value="Verplaatst">Verplaatst</option>
+    </select>
+    <div class="date-filter-group">
+      <span class="date-label">Van</span>
+      <input type="date" id="dateFrom" class="date-input-sm" onchange="applyFilters()">
+      <span class="date-label">T/m</span>
+      <input type="date" id="dateTo"   class="date-input-sm" onchange="applyFilters()">
+    </div>
+    <span class="record-count" id="recordCount">0 wijzigingen</span>
+  </div>
+
+  <div class="cl-scroll">
+    <table class="cl-table" id="clTable">
+      <thead>
+        <tr>
+          <th onclick="sortBy(0)">Datum / Tijd</th>
+          <th onclick="sortBy(1)">Dossier</th>
+          <th onclick="sortBy(2)">Veld</th>
+          <th onclick="sortBy(3)">Actie</th>
+          <th onclick="sortBy(4)">Oude waarde</th>
+          <th onclick="sortBy(5)">Nieuwe waarde</th>
+          <th onclick="sortBy(6)">Gebruiker</th>
+        </tr>
+      </thead>
+      <tbody id="clBody"></tbody>
+    </table>
+    <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+      <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">Meer laden</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL      = 'https://iubmajperipojqtlhwqk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Ym1hanBlcmlwb2pxdGxod3FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODM2MzcsImV4cCI6MjA5NDA1OTYzN30.IiUQAGO9rFuSC2LQlFr6dzmQPatCS-N7mjZdJzEQRNs';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const PAGE_SIZE = 200;
+let allRows = [], filtered = [];
+let sortCol = 0, sortDir = -1; // default: datetime desc
+
+// ── AUTH ──
+async function signIn() {
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const btn = document.getElementById('loginBtn');
+  if (!email || !password) { showLoginMsg('Vul e-mailadres en wachtwoord in.', true); return; }
+  btn.disabled = true; btn.textContent = 'Inloggen...';
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Inloggen';
+  if (error) showLoginMsg('Onjuiste gegevens.', true);
+}
+function showLoginMsg(text, isError) { const m = document.getElementById('loginMsg'); m.textContent = text; m.className = 'login-msg' + (isError ? ' error' : ''); }
+async function signOut() { await db.auth.signOut(); location.reload(); }
+function showLogin() { document.getElementById('loadingOverlay').style.display = 'none'; document.getElementById('loginScreen').style.display = 'flex'; }
+document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('passwordInput').focus(); });
+document.getElementById('passwordInput').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(); });
+
+// ── INIT ──
+async function init() {
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(), 5000));
+  try {
+    const { data: { session } } = await Promise.race([db.auth.getSession(), timeout]);
+    if (session) await enterApp(session.user);
+    else showLogin();
+    db.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session && document.getElementById('appScreen').style.display === 'none') await enterApp(session.user);
+    });
+  } catch (e) { showLogin(); }
+}
+
+async function enterApp(user) {
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('userEmail').textContent = user.email;
+  await loadData();
+  document.getElementById('loadingOverlay').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+}
+
+// ── DATA ──
+async function loadData() {
+  const { data, error } = await db.from('changelog')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) { showToast('Fout bij laden: ' + error.message); return; }
+  allRows = data || [];
+  applyFilters();
+}
+
+async function loadMore() {
+  const btn = document.getElementById('loadMoreBtn');
+  btn.disabled = true; btn.textContent = 'Laden...';
+  const oldest = allRows[allRows.length - 1];
+  if (!oldest) { btn.disabled = false; btn.textContent = 'Meer laden'; return; }
+  const { data, error } = await db.from('changelog')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .lt('created_at', oldest.created_at)
+    .limit(2000);
+  if (error) { showToast('Fout bij laden'); } else {
+    allRows = [...allRows, ...(data || [])];
+    applyFilters();
+  }
+  btn.disabled = false; btn.textContent = 'Meer laden';
+}
+
+// ── FILTER & SORT ──
+function applyFilters() {
+  const q      = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  const action = document.getElementById('actionFilter').value;
+  const from   = document.getElementById('dateFrom').value;
+  const to     = document.getElementById('dateTo').value;
+
+  filtered = allRows.filter(r => {
+    if (action && r.action !== action) return false;
+    if (from && r.created_at < from) return false;
+    if (to   && r.created_at.slice(0, 10) > to) return false;
+    if (q) {
+      const hay = [r.dossier_name, r.field_label, r.old_value, r.new_value, r.user_email].join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  sortFiltered();
+  renderTable();
+}
+
+function sortBy(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = col === 0 ? -1 : 1; }
+  const ths = document.querySelectorAll('.cl-table thead th');
+  ths.forEach((th, i) => { th.classList.remove('sorted-asc', 'sorted-desc'); if (i === col) th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc'); });
+  sortFiltered();
+  renderTable();
+}
+
+const COL_KEYS_SORT = ['created_at', 'dossier_name', 'field_label', 'action', 'old_value', 'new_value', 'user_email'];
+
+function sortFiltered() {
+  const key = COL_KEYS_SORT[sortCol];
+  filtered.sort((a, b) => {
+    const va = (a[key] || '').toLowerCase(), vb = (b[key] || '').toLowerCase();
+    if (va < vb) return -sortDir; if (va > vb) return sortDir; return 0;
+  });
+  // Update header indicators
+  const ths = document.querySelectorAll('.cl-table thead th');
+  ths.forEach((th, i) => { th.classList.remove('sorted-asc', 'sorted-desc'); if (i === sortCol) th.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc'); });
+}
+
+// ── RENDER ──
+function renderTable() {
+  const tbody = document.getElementById('clBody');
+  tbody.innerHTML = '';
+
+  if (filtered.length === 0) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="7" style="text-align:center;padding:40px;color:var(--grey);font-style:italic;">Geen wijzigingen gevonden</td>';
+    tbody.appendChild(tr);
+    document.getElementById('recordCount').textContent = '0 wijzigingen';
+    document.getElementById('loadMoreWrap').style.display = 'none';
+    return;
+  }
+
+  const show = filtered.slice(0, PAGE_SIZE);
+  show.forEach(r => {
+    const tr = document.createElement('tr');
+
+    const dt = new Date(r.created_at);
+    const dtStr = isNaN(dt) ? r.created_at : dt.toLocaleDateString('nl-NL', { day:'2-digit', month:'2-digit', year:'numeric' })
+      + ' ' + dt.toLocaleTimeString('nl-NL', { hour:'2-digit', minute:'2-digit' });
+
+    const dossierCell = r.dossier_id
+      ? `<a href="info.html?id=${r.dossier_id}&tab=klantstatus">${esc(r.dossier_name) || '(naamloos)'}</a>`
+      : (esc(r.dossier_name) || '<span class="td-empty">—</span>');
+
+    const badge = `<span class="action-badge ${esc(r.action)}">${esc(r.action)}</span>`;
+    const oldCell = r.old_value ? esc(r.old_value) : '<span class="td-empty">—</span>';
+    const newCell = r.new_value ? esc(r.new_value) : '<span class="td-empty">—</span>';
+
+    tr.innerHTML = `
+      <td class="td-datetime">${dtStr}</td>
+      <td class="td-dossier">${dossierCell}</td>
+      <td class="td-field">${esc(r.field_label) || '<span class="td-empty">—</span>'}</td>
+      <td>${badge}</td>
+      <td class="td-old">${oldCell}</td>
+      <td class="td-new">${newCell}</td>
+      <td class="td-user">${esc(r.user_email) || '<span class="td-empty">—</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const total = filtered.length;
+  document.getElementById('recordCount').textContent = `${Math.min(show.length, total)} van ${total} wijzigingen`;
+  document.getElementById('loadMoreWrap').style.display = filtered.length > PAGE_SIZE ? 'block' : 'none';
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── EXPORT CSV ──
+function exportCSV() {
+  const headers = ['Datum/Tijd','Dossier','Veld','Actie','Oude waarde','Nieuwe waarde','Gebruiker'];
+  const rows = filtered.map(r => {
+    const dt = new Date(r.created_at);
+    const dtStr = isNaN(dt) ? r.created_at : dt.toLocaleDateString('nl-NL') + ' ' + dt.toLocaleTimeString('nl-NL', { hour:'2-digit', minute:'2-digit' });
+    return [dtStr, r.dossier_name, r.field_label, r.action, r.old_value, r.new_value, r.user_email]
+      .map(v => `"${(v || '').replace(/"/g, '""')}"`)
+      .join(';');
+  });
+  const csv = [headers.join(';'), ...rows].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `wijzigingen_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  showToast('CSV geëxporteerd');
+}
+
+// ── TOAST ──
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+
+init();
+</script>
+</body>
+</html>
