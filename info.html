@@ -722,8 +722,17 @@ function renderForm() {
             return d.b !== 1 || d.a === 1;
           });
         })();
+        const infoUrgent = !infoComplete && (() => {
+          const datum = statusData.datum_afspraak;
+          if (!datum || datum === 'n.v.t.') return false;
+          const days = parseInt(alarmSettings.info_voor_afspraak) || 0;
+          if (!days) return false;
+          const deadline = new Date(datum);
+          deadline.setDate(deadline.getDate() - days);
+          return deadline < new Date();
+        })();
         const infoBtn = document.createElement('button');
-        infoBtn.className = 'card-status-btn' + (infoComplete ? ' complete' : '');
+        infoBtn.className = 'card-status-btn' + (infoComplete ? ' complete' : infoUrgent ? ' urgent' : '');
         infoBtn.style.cssText = 'flex:1;min-width:0;text-align:center;';
         infoBtn.textContent = infoComplete ? '✓ Info' : 'Info';
         infoBtn.onclick = () => { activeTab = 'klantgegevens'; renderForm(); };
@@ -762,8 +771,18 @@ function renderForm() {
           btnRow.appendChild(nvtVal);
         } else {
           const docsComplete = rechtbankKeys.every(f => { const d = infoData[f.key] || { b: 0, a: 0 }; return d.b === d.a; });
+          const docsUrgent = !docsComplete && (() => {
+            if (statusData.akkoord_klanten && statusData.akkoord_klanten !== 'n.v.t.') return true;
+            const p = infoData['pensioenverklaring'] || { b: 1, a: 0 };
+            if (p.b !== 1 || p.a === 1) return false;
+            const days = parseInt(alarmSettings.pensioenverklaring_termijn) || 0;
+            if (!days) return false;
+            const b = statusData.beschikking;
+            if (!b || b === 'n.v.t.') return false;
+            const d = new Date(b); d.setDate(d.getDate() + days); return d < new Date();
+          })();
           const aktesBtn = document.createElement('button');
-          aktesBtn.className = 'card-status-btn' + (docsComplete ? ' complete' : '');
+          aktesBtn.className = 'card-status-btn' + (docsComplete ? ' complete' : docsUrgent ? ' urgent' : '');
           aktesBtn.style.cssText = 'flex:1;min-width:0;text-align:center;';
           aktesBtn.textContent = docsComplete ? '✓ Aktes' : 'Aktes';
           aktesBtn.onclick = () => { activeTab = 'klantgegevens'; renderForm(); };
