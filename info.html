@@ -487,7 +487,7 @@ Object.assign(STATUS_FIELD_LABELS, {
 });
 
 function saveStatusField(key, value) {
-  if (key !== 'opmerkingen_gewijzigd') {
+  if (key !== 'opmerkingen_gewijzigd' && key !== 'opmerkingen') {
     const label = STATUS_FIELD_LABELS[key] || FIELD_LABELS[key];
     if (label) logChange(dossierId, statusData.klant || '', label, statusData[key] == null ? '' : String(statusData[key]), value == null ? '' : String(value));
   }
@@ -847,12 +847,21 @@ function renderForm() {
         const opmArea = document.createElement('textarea');
         opmArea.className = 'status-opmerkingen';
         opmArea.value = statusData.opmerkingen || '';
+        let _opmOldVal = statusData.opmerkingen || '';
+        opmArea.addEventListener('focus', () => { _opmOldVal = statusData.opmerkingen || ''; });
         opmArea.oninput = () => {
           const ts = new Date().toISOString();
           opmTs.textContent = formatOpmTs(ts);
           saveStatusField('opmerkingen', opmArea.value || null);
           saveStatusField('opmerkingen_gewijzigd', ts);
         };
+        opmArea.addEventListener('blur', () => {
+          const newVal = statusData.opmerkingen || '';
+          if (newVal !== _opmOldVal) {
+            logChange(dossierId, statusData.klant || '', 'Opmerkingen', _opmOldVal, newVal);
+            _opmOldVal = newVal;
+          }
+        });
         const opmBlock = document.createElement('div');
         opmBlock.appendChild(opmTitle);
         opmBlock.appendChild(opmArea);
