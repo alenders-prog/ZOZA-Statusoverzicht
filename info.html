@@ -42,6 +42,13 @@ main { padding: 28px 32px; display: none; }
   transition: all 0.25s; pointer-events: none; z-index: 9999;
 }
 #undoToast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+#undoCountdown {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  font-size: 0.72rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
 #undoBtn {
   font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700;
   background: none; border: 1.5px solid rgba(255,255,255,0.4); border-radius: 20px;
@@ -199,6 +206,7 @@ main { padding: 28px 32px; display: none; }
     </div>
     <div class="header-actions">
       <span class="sync" id="syncStatus">● opgeslagen</span>
+      <button class="btn btn-ghost" onclick="window.location.href='changelog.html?q='+encodeURIComponent(document.getElementById('klantName').textContent)">Wijzigingen</button>
       <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
     </div>
   </div>
@@ -217,6 +225,7 @@ main { padding: 28px 32px; display: none; }
 
 <div id="undoToast">
   <span>Klant verwijderd</span>
+  <span id="undoCountdown">5</span>
   <button id="undoBtn" onclick="undoDelete()">Ongedaan maken</button>
 </div>
 
@@ -1435,6 +1444,7 @@ async function init() {
 }
 
 let deleteTimer = null;
+let countdownInterval = null;
 
 function openDeleteModal() {
   document.getElementById('deleteModalName').textContent = document.getElementById('klantName').textContent;
@@ -1446,17 +1456,25 @@ function closeDeleteModal() {
 function confirmDelete() {
   closeDeleteModal();
   document.getElementById('undoToast').classList.add('show');
+  let secondsLeft = 5;
+  document.getElementById('undoCountdown').textContent = secondsLeft;
+  countdownInterval = setInterval(() => {
+    secondsLeft--;
+    document.getElementById('undoCountdown').textContent = secondsLeft;
+    if (secondsLeft <= 0) { clearInterval(countdownInterval); countdownInterval = null; }
+  }, 1000);
   deleteTimer = setTimeout(async () => {
+    clearInterval(countdownInterval); countdownInterval = null;
     document.getElementById('undoToast').classList.remove('show');
-    logChange(dossierId, statusData.klant || '', 'Dossier', statusData.klant || '', '', 'Verwijderd');
+    await logChange(dossierId, statusData.klant || '', 'Dossier', statusData.klant || '', '', 'Verwijderd');
     const { error } = await db.from('dossiers').delete().eq('id', dossierId);
     if (error) { alert('Verwijderen mislukt: ' + error.message); return; }
     window.location.href = 'index.html';
   }, 5000);
 }
 function undoDelete() {
-  clearTimeout(deleteTimer);
-  deleteTimer = null;
+  clearTimeout(deleteTimer); deleteTimer = null;
+  clearInterval(countdownInterval); countdownInterval = null;
   document.getElementById('undoToast').classList.remove('show');
 }
 document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });

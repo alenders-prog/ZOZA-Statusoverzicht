@@ -57,7 +57,7 @@ async function logChange(dossierId, dossierName, fieldLabel, oldValue, newValue,
   action = action || 'Bewerkt';
   const ov = oldValue == null ? '' : String(oldValue);
   const nv = newValue == null ? '' : String(newValue);
-  if (ov === nv) return; // no actual change — skip
+  if (action === 'Bewerkt' && ov === nv) return; // no actual change — skip edits only
   try {
     await db.from('changelog').insert({
       dossier_id:   dossierId   || null,

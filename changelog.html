@@ -221,6 +221,13 @@ async function enterApp(user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('userEmail').textContent = user.email;
   await loadData();
+  const qParam = new URLSearchParams(window.location.search).get('q');
+  if (qParam) {
+    const si = document.getElementById('searchInput');
+    si.value = qParam;
+    document.getElementById('searchClear').style.display = 'flex';
+    applyFilters();
+  }
   document.getElementById('loadingOverlay').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
 }

@@ -704,7 +704,7 @@ async function confirmDelete() {
   if (rowToDelete !== null) {
     const row = rows[rowToDelete];
     if (row.id) {
-      logChange(row.id, row.klant || '', 'Dossier', row.klant || '', '', 'Verwijderd');
+      await logChange(row.id, row.klant || '', 'Dossier', row.klant || '', '', 'Verwijderd');
       await deleteRow(row.id);
     }
     rows.splice(rowToDelete, 1); renderTable(); showToast('Dossier verwijderd');
