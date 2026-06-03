@@ -57,7 +57,7 @@ body {
 /* ══════════════════════════════
    LOGIN
    ══════════════════════════════ */
-#loginScreen {
+#loginScreen, #resetScreen {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -741,6 +741,7 @@ td.col-klant.editing-cell input { color: var(--ink); }
 td select { -webkit-appearance: none; appearance: none; text-align: center; cursor: pointer; }
 td.editing-cell .cell-display   { display: none; }
 td.editing-cell input, td.editing-cell select { display: block; }
+td.date-td { position: relative; }
 .date-edit-wrap { display: none; align-items: stretch; }
 td.editing-cell .date-edit-wrap {
   display: flex; position: absolute; top: 0; left: 0;

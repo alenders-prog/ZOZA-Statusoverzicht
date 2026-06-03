@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypotheek leads</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.header-klant { display: flex; flex-direction: column; justify-content: center; }
+.header-klant h1 { line-height: 1.1; }
+
+#hypScroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); }
+#hypTable { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+
+/* Fixed date column widths */
+#hypTable thead tr.col-row th:nth-child(3),
+#hypTable thead tr.col-row th:nth-child(4),
+#hypTable thead tr.col-row th:nth-child(5),
+#hypTable thead tr.col-row th:nth-child(6) { width: 160px; }
+
+/* Sticky header */
+#hypTable thead tr.col-row th { position: sticky; top: 0; z-index: 9; background: var(--orange-soft); }
+
+/* Sticky dossier column */
+#hypTable thead tr.col-row th:first-child { position: sticky; top: 0; left: 0; z-index: 12; }
+#hypTable tbody td.col-klant {
+  position: sticky; left: 0; z-index: 5;
+  background: var(--white); border-right: 1px solid var(--grey-rule);
+}
+#hypTable tbody tr:nth-child(even) td.col-klant { background: #FAFAFA; }
+#hypTable tbody tr:hover td.col-klant { background: var(--orange-soft); }
+
+.sort-arrow { margin-left: 4px; opacity: 0.45; font-style: normal; font-size: 0.7em; }
+.sort-arrow.active { opacity: 1; }
+#hypTable thead th.no-sort { cursor: default; }
+#hypTable thead th.no-sort:hover { filter: none; }
+#hypTable .ch-klant { min-width: 0; top: 0 !important; left: 0 !important; z-index: 12 !important; }
+
+.text-td .cell-display { justify-content: flex-start; }
+.date-td .cell-display.nvt { color: var(--grey); }
+
+.opm-td { cursor: pointer; padding: 0 !important; }
+.opm-display { min-height: 36px; padding: 8px 10px; display: flex; align-items: center; font-size: 0.78rem; font-weight: 600; color: var(--ink); white-space: nowrap; font-family: 'Nunito', sans-serif; }
+.opm-display.empty { color: transparent; }
+.opm-display.empty::after { content: '—'; color: var(--grey-rule); }
+.opm-input-field { display: none; width: 100%; min-height: 36px; border: none; outline: none; background: var(--orange-soft); font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--ink); padding: 8px 10px; cursor: text; box-sizing: border-box; }
+.opm-td.editing .opm-display { display: none; }
+.opm-td.editing .opm-input-field { display: block; }
+
+#hypTable tbody tr:has(+ tr.dossier-separator) td { border-bottom: none; }
+#hypTable tbody tr.dossier-separator td { border-top: 1px solid var(--orange); }
+
+.hyp-section-title {
+  font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding-bottom: 8px; border-bottom: 2px solid var(--orange);
+  margin-bottom: 0; color: var(--orange-dark);
+}
+/* Opmerkingen header left-aligned */
+#hypTable thead th.ch-o { text-align: left; }
+/* yn cell: always show the select, skip the click-to-edit dance */
+td.yn-td select {
+  display: block !important;
+  background: transparent;
+  min-height: 0;
+  padding: 4px 10px;
+  width: 100%;
+}
+td.yn-td .cell-display { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
+
+<div id="appScreen">
+  <header>
+    <div class="header-inner">
+      <button class="btn btn-ghost" onclick="history.back()">← Terug</button>
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+      <div class="header-klant">
+        <h1>Hypotheek leads</h1>
+        <span class="header-subtitle">Overzicht</span>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
+      <input type="text" id="searchInput" placeholder="Zoek op dossiernaam..."
+        oninput="filterRows(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+      <button id="searchClear" class="search-clear" style="display:none"
+        onclick="document.getElementById('searchInput').value='';filterRows('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
+    </div>
+  </div>
+
+  <div style="margin:32px 0;padding:0 28px;">
+    <div class="hyp-section-title">Personen met hypotheek lead</div>
+    <div id="hypScroll">
+      <table id="hypTable" style="width:100%;">
+        <thead><tr id="hypHead" class="col-row"></tr></thead>
+        <tbody id="hypBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyMsg" style="display:none;padding:24px 12px;font-family:'Nunito',sans-serif;font-size:0.83rem;font-weight:600;color:var(--grey);">Geen hypotheek leads gevonden.</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL      = 'https://iubmajperipojqtlhwqk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Ym1hanBlcmlwb2pxdGxod3FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODM2MzcsImV4cCI6MjA5NDA1OTYzN30.IiUQAGO9rFuSC2LQlFr6dzmQPatCS-N7mjZdJzEQRNs';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const COLUMNS = [
+  { label: 'Dossier',          colKey: null,                   type: 'string', sortable: true,  thClass: 'ch-klant' },
+  { label: 'Naam',             colKey: null,                   type: 'string', sortable: true,  thClass: ''         },
+  { label: 'Doorgestuurd',     colKey: 'hyp_doorgestuurd',     type: 'date',   sortable: true,  thClass: ''         },
+  { label: 'Klant geworden',   colKey: 'hyp_klant',            type: 'yn',     sortable: true,  thClass: ''         },
+  { label: 'Factuur gestuurd', colKey: 'hyp_factuur_gestuurd', type: 'date',   sortable: true,  thClass: ''         },
+  { label: 'Factuur betaald',  colKey: 'hyp_factuur_betaald',  type: 'date',   sortable: true,  thClass: ''         },
+  { label: 'Opmerkingen',      colKey: null,                   type: 'string', sortable: false, thClass: 'ch-o'     },
+];
+
+let rows = [];
+let sortCol = 0, sortDir = 1;
+let thEls = [];
+let searchQuery = '';
+
+let _toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function filterRows(q) { searchQuery = (q || '').toLowerCase(); renderTable(); }
+
+function parseInfo(raw) {
+  try { return typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch(e) { return {}; }
+}
+
+function fmtDate(val) {
+  if (!val || val === 'n.v.t.') return val === 'n.v.t.' ? 'n.v.t.' : '—';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function sortKey(row, col) {
+  if (COLUMNS[col].type === 'date') {
+    const raw = row.raw[col];
+    if (!raw || raw === '—') return '0000-00-00';
+    if (raw === 'n.v.t.') return '9999-99-99';
+    return raw;
+  }
+  if (COLUMNS[col].type === 'yn') {
+    const v = row.raw[col] || '';
+    return v === 'ja' ? '1' : v === 'nee' ? '2' : '3';
+  }
+  return (row.cells[col] || '').toLowerCase();
+}
+
+async function setKlantGeworden(row, val) {
+  const sfx     = row.suffix;
+  const key     = 'hyp_klant' + sfx;
+  const updates = { [key]: val || null };
+
+  row.rawRow[key] = val || null;
+  row.raw[3]      = val || null;
+  row.cells[3]    = val || '—';
+
+  // Propagate n.v.t. to factuur columns
+  ['hyp_factuur_gestuurd', 'hyp_factuur_betaald'].forEach(base => {
+    const fKey = base + sfx;
+    const ci   = COLUMNS.findIndex(c => c.colKey === base);
+    if (val === 'nee') {
+      row.rawRow[fKey] = 'n.v.t.';
+      row.raw[ci]      = 'n.v.t.';
+      row.cells[ci]    = 'n.v.t.';
+      updates[fKey]    = 'n.v.t.';
+    } else if (row.rawRow[fKey] === 'n.v.t.') {
+      row.rawRow[fKey] = null;
+      row.raw[ci]      = null;
+      row.cells[ci]    = '—';
+      updates[fKey]    = null;
+    }
+  });
+
+  const { error } = await db.from('dossiers').update(updates).eq('id', row.id);
+  if (error) { showToast('Opslaan mislukt: ' + error.message); return; }
+  renderTable();
+}
+
+function updateHeaders() {
+  thEls.forEach((th, i) => {
+    if (!COLUMNS[i].sortable) return;
+    const arrow = th.querySelector('.sort-arrow');
+    if (i === sortCol) { arrow.textContent = sortDir === 1 ? ' ▲' : ' ▼'; arrow.classList.add('active'); }
+    else               { arrow.textContent = ' ▲'; arrow.classList.remove('active'); }
+  });
+}
+
+function renderTable() {
+  const sorted = [...rows]
+    .filter(r => !searchQuery || (r.cells[0] || '').toLowerCase().includes(searchQuery))
+    .sort((a, b) => {
+      const ka = sortKey(a, sortCol), kb = sortKey(b, sortCol);
+      return ka < kb ? -sortDir : ka > kb ? sortDir : 0;
+    });
+
+  const tbody = document.getElementById('hypBody');
+  tbody.innerHTML = '';
+
+  let prevDossier = null;
+  sorted.forEach(row => {
+    const tr = document.createElement('tr');
+    if (sortCol === 0 && prevDossier !== null && row.cells[0] !== prevDossier)
+      tr.classList.add('dossier-separator');
+    prevDossier = row.cells[0];
+
+    // Dossier (sticky link column)
+    const dossierTd = document.createElement('td');
+    dossierTd.className = 'col-klant';
+    const dossierDisp = document.createElement('div');
+    dossierDisp.className = 'cell-display';
+    const link = document.createElement('a');
+    link.href = `info.html?id=${row.id}`;
+    link.textContent = row.cells[0];
+    link.style.cssText = 'color:inherit;text-decoration:none;';
+    dossierDisp.appendChild(link);
+    dossierTd.appendChild(dossierDisp);
+    tr.appendChild(dossierTd);
+
+    // Naam
+    const naamTd = document.createElement('td');
+    naamTd.className = 'text-td';
+    const naamDisp = document.createElement('div');
+    naamDisp.className = 'cell-display';
+    naamDisp.textContent = row.cells[1];
+    naamTd.appendChild(naamDisp);
+    tr.appendChild(naamTd);
+
+    // Data columns (indices 2–5)
+    COLUMNS.slice(2, 6).forEach((col, i) => {
+      const cellIdx      = i + 2;
+      const effectiveKey = col.colKey + row.suffix;
+      const rawVal       = row.rawRow[effectiveKey];
+
+      if (col.type === 'yn') {
+        // ── Ja / Nee — always-visible select, one click opens dropdown ──
+        const td = document.createElement('td');
+        td.className = 'yn-td';
+
+        const sel = document.createElement('select');
+        ['', 'ja', 'nee'].forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt;
+          o.textContent = opt === 'ja' ? 'Ja' : opt === 'nee' ? 'Nee' : '—';
+          if ((rawVal || '') === opt) o.selected = true;
+          sel.appendChild(o);
+        });
+        sel.onchange = () => setKlantGeworden(row, sel.value || null);
+
+        td.appendChild(sel);
+        tr.appendChild(td);
+        return;
+      }
+
+      // ── Date cell ──
+      const td = document.createElement('td');
+      td.className = 'date-td';
+
+      const display = document.createElement('div');
+      const isEmpty  = !rawVal || rawVal === '';
+      const isNvt    = rawVal === 'n.v.t.';
+      display.className   = 'cell-display' + (isNvt ? ' nvt' : isEmpty ? ' empty' : '');
+      display.textContent = isEmpty ? '' : fmtDate(rawVal);
+
+      const dateInput = document.createElement('input');
+      dateInput.type  = 'date';
+      dateInput.value = (!rawVal || isNvt) ? new Date().toISOString().slice(0, 10) : rawVal;
+
+      const nvtBtn = document.createElement('button');
+      nvtBtn.className   = 'nvt-btn';
+      nvtBtn.textContent = 'n.v.t.';
+
+      const dateWrap = document.createElement('div');
+      dateWrap.className = 'date-edit-wrap';
+      dateWrap.appendChild(dateInput);
+      dateWrap.appendChild(nvtBtn);
+
+      td.appendChild(display);
+      td.appendChild(dateWrap);
+
+      const exitEdit = () => td.classList.remove('editing-cell');
+
+      td.onclick = () => {
+        document.querySelectorAll('.date-td.editing-cell').forEach(o => { if (o !== td) o.classList.remove('editing-cell'); });
+        td.classList.add('editing-cell');
+        dateInput.focus();
+        dateInput.showPicker?.();
+      };
+      dateInput.addEventListener('click', e => e.stopPropagation());
+
+      dateInput.onchange = async () => {
+        const v = dateInput.value;
+        row.rawRow[effectiveKey] = v;
+        row.cells[cellIdx] = fmtDate(v);
+        row.raw[cellIdx]   = v;
+        display.textContent = fmtDate(v);
+        display.className = 'cell-display' + (v ? '' : ' empty');
+        exitEdit();
+        const { error: e1 } = await db.from('dossiers').update({ [effectiveKey]: v || null }).eq('id', row.id);
+        if (e1) showToast('Opslaan mislukt: ' + e1.message);
+      };
+      dateInput.onblur = () => exitEdit();
+
+      nvtBtn.onmousedown = e => e.preventDefault();
+      nvtBtn.onclick = async e => {
+        e.stopPropagation();
+        row.rawRow[effectiveKey] = 'n.v.t.';
+        row.cells[cellIdx] = 'n.v.t.';
+        row.raw[cellIdx]   = 'n.v.t.';
+        display.textContent = 'n.v.t.';
+        display.className   = 'cell-display nvt';
+        exitEdit();
+        const { error: e2 } = await db.from('dossiers').update({ [effectiveKey]: 'n.v.t.' }).eq('id', row.id);
+        if (e2) showToast('Opslaan mislukt: ' + e2.message);
+      };
+
+      tr.appendChild(td);
+    });
+
+    // Opmerkingen
+    const opmTd = document.createElement('td');
+    opmTd.className    = 'opm-td';
+    opmTd.style.cssText = 'min-width:180px;';
+
+    const opmDisp = document.createElement('div');
+    opmDisp.className   = 'opm-display' + (row.opmerkingen ? '' : ' empty');
+    opmDisp.textContent = row.opmerkingen || '';
+
+    const opmInput = document.createElement('input');
+    opmInput.type      = 'text';
+    opmInput.className = 'opm-input-field';
+    opmInput.value     = row.opmerkingen || '';
+
+    opmTd.onclick = () => { opmTd.classList.add('editing'); opmInput.focus(); opmInput.select(); };
+    opmInput.oninput = () => {
+      opmDisp.textContent = opmInput.value;
+      opmDisp.className   = 'opm-display' + (opmInput.value ? '' : ' empty');
+      rows.filter(r => r.id === row.id).forEach(r => r.opmerkingen = opmInput.value);
+      syncOpmWidth();
+    };
+    opmInput.onblur = async () => {
+      opmTd.classList.remove('editing');
+      const { error: oe } = await db.from('dossiers').update({ opmerkingen_hypotheek: opmInput.value || null }).eq('id', row.id);
+      if (oe) showToast('Opslaan mislukt: ' + oe.message);
+    };
+    opmInput.onkeydown = e => { if (e.key === 'Enter' || e.key === 'Escape') opmInput.blur(); };
+
+    opmTd.appendChild(opmDisp);
+    opmTd.appendChild(opmInput);
+    tr.appendChild(opmTd);
+
+    tbody.appendChild(tr);
+  });
+
+  updateHeaders();
+  requestAnimationFrame(syncOpmWidth);
+}
+
+function sizeFlexColumns() {
+  const m = document.createElement('span');
+  m.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font-family:'Nunito',sans-serif;font-size:0.83rem;font-weight:600;top:-9999px;left:-9999px;";
+  document.body.appendChild(m);
+  [0, 1].forEach(ci => {
+    let maxW = 0;
+    rows.forEach(row => { m.textContent = row.cells[ci] || ''; maxW = Math.max(maxW, m.offsetWidth); });
+    thEls[ci].style.width = (maxW + 20) + 'px';
+  });
+  document.body.removeChild(m);
+}
+
+function syncOpmWidth() {
+  const m = document.createElement('div');
+  m.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font-family:'Nunito',sans-serif;font-size:0.83rem;font-weight:600;padding:8px 10px;top:-9999px;left:-9999px;";
+  document.body.appendChild(m);
+  let maxW = 180;
+  document.querySelectorAll('.opm-display').forEach(el => { m.textContent = el.textContent || ''; maxW = Math.max(maxW, m.offsetWidth); });
+  document.body.removeChild(m);
+  document.querySelectorAll('.opm-td').forEach(td => { td.style.minWidth = maxW + 'px'; td.style.width = maxW + 'px'; });
+  const opmTh = document.querySelector('#hypHead th.no-sort');
+  if (opmTh) opmTh.style.minWidth = maxW + 'px';
+}
+
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  document.getElementById('loadingOverlay').style.display = 'none';
+  if (!session) { window.location.href = 'index.html'; return; }
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('appScreen').style.display = 'block';
+
+  // Build column headers
+  const headRow = document.getElementById('hypHead');
+  COLUMNS.forEach((col, i) => {
+    const th = document.createElement('th');
+    if (col.thClass) th.classList.add(col.thClass);
+    if (col.sortable) {
+      th.innerHTML = col.label + '<span class="sort-arrow"> ▲</span>';
+      th.onclick = () => { if (sortCol === i) sortDir = -sortDir; else { sortCol = i; sortDir = 1; } renderTable(); };
+    } else {
+      th.textContent = col.label;
+      th.classList.add('no-sort');
+    }
+    headRow.appendChild(th);
+    thEls.push(th);
+  });
+
+  const filterId = new URLSearchParams(location.search).get('id');
+
+  const { data } = await db.from('dossiers')
+    .select('id, klant, info_data, hypotheek_a, hypotheek_b, hyp_doorgestuurd_a, hyp_doorgestuurd_b, hyp_klant_a, hyp_klant_b, hyp_factuur_gestuurd_a, hyp_factuur_gestuurd_b, hyp_factuur_betaald_a, hyp_factuur_betaald_b, opmerkingen_hypotheek')
+    .or('hypotheek_a.eq.1,hypotheek_b.eq.1')
+    .order('klant');
+
+  (data || []).forEach(row => {
+    const klant = parseInfo(row.info_data)._klant || {};
+    const dossierName = row.klant || '(Naamloos)';
+    [['hypotheek_a', klant.naam_a, '_a'], ['hypotheek_b', klant.naam_b, '_b']].forEach(([col, naam, suffix]) => {
+      if (row[col] !== 1) return;
+      const rawDates = [
+        row['hyp_doorgestuurd'     + suffix],
+        row['hyp_klant'            + suffix],
+        row['hyp_factuur_gestuurd' + suffix],
+        row['hyp_factuur_betaald'  + suffix],
+      ];
+      rows.push({
+        id:          row.id,
+        suffix:      suffix,
+        opmerkingen: row.opmerkingen_hypotheek || '',
+        cells:       [dossierName, naam || '—', ...rawDates.map(fmtDate)],
+        raw:         [dossierName, naam || '—', ...rawDates],
+        rawRow:      row,
+      });
+    });
+  });
+
+  if (rows.length === 0) {
+    document.getElementById('hypTable').style.display = 'none';
+    document.getElementById('emptyMsg').style.display = 'block';
+    return;
+  }
+
+  if (filterId) {
+    const match = rows.find(r => String(r.id) === filterId);
+    if (match) {
+      const name = match.cells[0];
+      const input = document.getElementById('searchInput');
+      input.value = name;
+      document.getElementById('searchClear').style.display = 'flex';
+      searchQuery = name.toLowerCase();
+    }
+  }
+
+  renderTable();
+  sizeFlexColumns();
+}
+
+init();
+</script>
+</body>
+</html>

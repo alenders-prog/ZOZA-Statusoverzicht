@@ -206,6 +206,8 @@ main { padding: 28px 32px; display: none; }
     </div>
     <div class="header-actions">
       <span class="sync" id="syncStatus">● opgeslagen</span>
+      <button id="toevoegingenBtn" class="btn btn-ghost" onclick="window.location.href='toevoegingen.html?id='+dossierId">Toevoegingen</button>
+      <button id="hypotheekBtn" class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html?id='+dossierId">Hypotheek leads</button>
       <button class="btn btn-ghost" onclick="window.location.href='changelog.html?q='+encodeURIComponent(document.getElementById('klantName').textContent)">Wijzigingen</button>
       <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
     </div>
@@ -340,10 +342,11 @@ const STATUS_SECTIONS = [
     { key: 'inschrijving_ontvangen', label: 'Inschrijving ontvangen', type: 'date' },
   ]},
   { title: 'Afronding', color: '#1E7A52', fields: [
-    { key: 'beeindigd',              label: 'Ingelicht en beeindigd', type: 'date' },
-    { key: 'vergoeding_aangevraagd', label: 'Vergoeding aangevraagd', type: 'date' },
-    { key: 'vergoeding_ontvangen',   label: 'Vergoeding ontvangen',   type: 'date' },
-    { key: 'zoza_afgerond',          label: 'ZOZA afgerond',          type: 'date' },
+    { key: 'beeindigd',              label: 'Ingelicht en beeindigd', type: 'date'    },
+    { key: 'vergoeding_aangevraagd', label: 'Vergoeding aangevraagd', type: 'date'    },
+    { key: 'vergoeding_ontvangen',   label: 'Vergoeding ontvangen',   type: 'date'    },
+    { key: 'zoza_afgerond',          label: 'ZOZA afgerond',          type: 'date'    },
+    { key: 'hyp_fee_ontvangen',      label: 'Hyp.fee ontvangen',      type: 'display' },
   ]},
 ];
 
@@ -460,6 +463,12 @@ function refreshStatusAlarms() {
     });
   });
   refreshPhaseHighlight();
+  const hasToev = statusData.toevoeging_a === 1 || statusData.toevoeging_b === 1;
+  const toevBtn = document.getElementById('toevoegingenBtn');
+  if (toevBtn) toevBtn.style.display = hasToev ? '' : 'none';
+  const hasHyp = statusData.hypotheek_a === 1 || statusData.hypotheek_b === 1;
+  const hypBtn = document.getElementById('hypotheekBtn');
+  if (hypBtn) hypBtn.style.display = hasHyp ? '' : 'none';
 }
 
 function formatOpmTs(iso) {
@@ -493,6 +502,8 @@ Object.assign(STATUS_FIELD_LABELS, {
   bevestigd_b:    'Bevestigd toevoeging B',
   aangevraagd_a:  'Aangevraagd toevoeging A',
   aangevraagd_b:  'Aangevraagd toevoeging B',
+  hypotheek_a:    'Hypotheek lead persoon A',
+  hypotheek_b:    'Hypotheek lead persoon B',
 });
 
 function saveStatusField(key, value) {
@@ -543,11 +554,28 @@ const ALARM_CHECKS = {
   vergoeding_aangevraagd: r => !r.vergoeding_aangevraagd && (r.kanban_column === 'gemeente' || r.kanban_column === 'afronding' || hasValue(r.verstuurd_gemeente) || hasValue(r.beeindigd)),
   vergoeding_ontvangen:   r => { if (r.vergoeding_ontvangen) return false; const days = parseInt(alarmSettings.reactie_vergoeding_rvr) || 0; return !!days && deadlinePassed(r.vergoeding_aangevraagd, days); },
   zoza_afgerond:          r => !r.zoza_afgerond && !!(r.beeindigd && r.beeindigd !== 'n.v.t.' && r.vergoeding_ontvangen),
+  hyp_fee_ontvangen:      r => !computeHypFee(r) && !!(r.beeindigd && r.beeindigd !== 'n.v.t.'),
 };
 
 function renderStatusInput(key, value, type) {
   const wrap = document.createElement('div');
   wrap.className = 'status-field-input';
+
+  if (type === 'display') {
+    // Read-only computed date — no picker
+    const isNvt = value === 'n.v.t.';
+    const hasDate = !!value && !isNvt;
+    const display = document.createElement('span');
+    display.className = 'status-date-display' + (isNvt ? ' is-nvt' : !hasDate ? ' is-empty' : '');
+    if (hasDate) {
+      const d = new Date(value);
+      display.textContent = isNaN(d.getTime()) ? value : d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } else {
+      display.textContent = isNvt ? 'n.v.t.' : '—';
+    }
+    wrap.appendChild(display);
+    return wrap;
+  }
 
   if (type === 'date') {
     const isNvt = value === 'n.v.t.';
@@ -719,6 +747,7 @@ function renderForm() {
   main.appendChild(tabBar);
 
   if (activeTab === 'klantstatus') {
+    statusData.hyp_fee_ontvangen = computeHypFee(statusData);
     const grid = document.createElement('div');
     grid.className = 'status-grid';
     let firstBlock = null;
@@ -923,7 +952,7 @@ function renderForm() {
 
   const klantTable = document.createElement('table');
   klantTable.className = 'field-table';
-  klantTable.innerHTML = '<thead><tr><th style="width:25%">Veld</th><th style="text-align:left;">Waarde</th><th style="text-align:center;width:1px;white-space:nowrap;padding:8px 4px;">Toevoegingen</th></tr></thead>';
+  klantTable.innerHTML = '<thead><tr><th style="width:25%">Veld</th><th style="text-align:left;">Waarde</th></tr></thead>';
   const klantTbody = document.createElement('tbody');
   const klant = infoData._klant || {};
   const inputStyle = 'width:100%;border:none;outline:none;font-family:"Nunito",sans-serif;font-size:0.83rem;font-weight:700;background:transparent;padding:0;color:var(--ink);';
@@ -1181,32 +1210,61 @@ function renderForm() {
     valTd.appendChild(control);
     tr.appendChild(labelTd);
     tr.appendChild(valTd);
-
-    const toevTd = document.createElement('td');
-    toevTd.style.cssText = 'text-align:center;width:1px;white-space:nowrap;padding:4px 4px;';
-    if (f.key === 'naam_a' || f.key === 'naam_b') {
-      const statusKey = f.key === 'naam_a' ? 'toevoeging_a' : 'toevoeging_b';
-      const toevBtn = document.createElement('button');
-      const updateToevBtn = () => {
-        const v = statusData[statusKey] === 1 ? 1 : 0;
-        toevBtn.className = 'toggle' + (v === 1 ? ' ben-on' : '');
-        toevBtn.textContent = v === 1 ? '1' : '0';
-      };
-      updateToevBtn();
-      toevBtn.onclick = () => {
-        saveStatusField(statusKey, statusData[statusKey] === 1 ? 0 : 1);
-        updateToevBtn();
-        propagateToevoegingNvt();
-      };
-      toevTd.appendChild(toevBtn);
-    }
-    tr.appendChild(toevTd);
     klantTbody.appendChild(tr);
   });
 
   klantTable.appendChild(klantTbody);
   klantSection.appendChild(klantTable);
   leftCol.appendChild(klantSection);
+
+  // ── Toevoegingen ──
+  const toevSection = document.createElement('div');
+  toevSection.className = 'section';
+  toevSection.style.marginTop = '28px';
+
+  const toevTitleRow = document.createElement('div');
+  toevTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--orange);margin-bottom:0;';
+  const toevTitleText = document.createElement('div');
+  toevTitleText.className = 'section-title';
+  toevTitleText.style.cssText = 'border:none;padding:0;margin:0;';
+  toevTitleText.textContent = 'Toevoegingen';
+  toevTitleRow.appendChild(toevTitleText);
+  toevSection.appendChild(toevTitleRow);
+
+  const toevTable = document.createElement('table');
+  toevTable.className = 'field-table';
+  toevTable.innerHTML = '<thead><tr><th>Naam</th><th style="text-align:center;width:90px;">Toevoeging</th></tr></thead>';
+  const toevTbody = document.createElement('tbody');
+
+  [
+    { nameKey: 'naam_a', statusKey: 'toevoeging_a', fallback: 'Persoon A' },
+    { nameKey: 'naam_b', statusKey: 'toevoeging_b', fallback: 'Persoon B' },
+  ].forEach(({ nameKey, statusKey, fallback }) => {
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td');
+    nameTd.textContent = klant[nameKey] || fallback;
+    const btnTd = document.createElement('td');
+    btnTd.style.cssText = 'text-align:center;padding:4px;';
+    const btn = document.createElement('button');
+    const updateBtn = () => {
+      const v = statusData[statusKey] === 1 ? 1 : 0;
+      btn.className = 'toggle' + (v === 1 ? ' ben-on' : '');
+      btn.textContent = v === 1 ? '1' : '0';
+    };
+    updateBtn();
+    btn.onclick = () => {
+      saveStatusField(statusKey, statusData[statusKey] === 1 ? 0 : 1);
+      updateBtn();
+      propagateToevoegingNvt();
+    };
+    btnTd.appendChild(btn);
+    tr.appendChild(nameTd);
+    tr.appendChild(btnTd);
+    toevTbody.appendChild(tr);
+  });
+
+  toevTable.appendChild(toevTbody);
+  toevSection.appendChild(toevTable);
 
   // ── Dienstverlening ──
   const dienstvSection = document.createElement('div');
@@ -1266,6 +1324,56 @@ function renderForm() {
   dienstvTable.appendChild(dienstvTbody);
   dienstvSection.appendChild(dienstvTable);
   leftCol.appendChild(dienstvSection);
+  leftCol.appendChild(toevSection);
+
+  // ── Hypotheek leads ──
+  const hypotheekSection = document.createElement('div');
+  hypotheekSection.className = 'section';
+  hypotheekSection.style.marginTop = '28px';
+
+  const hypotheekTitleRow = document.createElement('div');
+  hypotheekTitleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:8px;border-bottom:2px solid var(--orange);margin-bottom:0;';
+  const hypotheekTitleText = document.createElement('div');
+  hypotheekTitleText.className = 'section-title';
+  hypotheekTitleText.style.cssText = 'border:none;padding:0;margin:0;';
+  hypotheekTitleText.textContent = 'Hypotheek leads';
+  hypotheekTitleRow.appendChild(hypotheekTitleText);
+  hypotheekSection.appendChild(hypotheekTitleRow);
+
+  const hypotheekTable = document.createElement('table');
+  hypotheekTable.className = 'field-table';
+  hypotheekTable.innerHTML = '<thead><tr><th>Naam</th><th style="text-align:center;width:90px;">Lead</th></tr></thead>';
+  const hypotheekTbody = document.createElement('tbody');
+
+  [
+    { nameKey: 'naam_a', statusKey: 'hypotheek_a', fallback: 'Persoon A' },
+    { nameKey: 'naam_b', statusKey: 'hypotheek_b', fallback: 'Persoon B' },
+  ].forEach(({ nameKey, statusKey, fallback }) => {
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td');
+    nameTd.textContent = klant[nameKey] || fallback;
+    const btnTd = document.createElement('td');
+    btnTd.style.cssText = 'text-align:center;padding:4px;';
+    const btn = document.createElement('button');
+    const updateBtn = () => {
+      const v = statusData[statusKey] === 1 ? 1 : 0;
+      btn.className = 'toggle' + (v === 1 ? ' ben-on' : '');
+      btn.textContent = v === 1 ? '1' : '0';
+    };
+    updateBtn();
+    btn.onclick = () => {
+      saveStatusField(statusKey, statusData[statusKey] === 1 ? 0 : 1);
+      updateBtn();
+    };
+    btnTd.appendChild(btn);
+    tr.appendChild(nameTd);
+    tr.appendChild(btnTd);
+    hypotheekTbody.appendChild(tr);
+  });
+
+  hypotheekTable.appendChild(hypotheekTbody);
+  hypotheekSection.appendChild(hypotheekTable);
+  leftCol.appendChild(hypotheekSection);
 
   layout.appendChild(leftCol);
 
@@ -1437,6 +1545,7 @@ async function init() {
 
     if (isNew) { applyDefaultBenodigd(); await save(); }
     renderForm();
+    refreshStatusAlarms();
     document.getElementById('loadingOverlay').style.display = 'none';
   } catch (e) {
     window.location.href = 'index.html';

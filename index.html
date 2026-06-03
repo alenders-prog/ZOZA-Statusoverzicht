@@ -33,6 +33,27 @@
   </div>
 </div>
 
+<div id="resetScreen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+    </div>
+    <h1>Nieuw wachtwoord</h1>
+    <p class="subtitle">Stel een nieuw wachtwoord in</p>
+    <label for="newPasswordInput">Nieuw wachtwoord</label>
+    <input type="password" id="newPasswordInput" placeholder="••••••••" autocomplete="new-password">
+    <label for="confirmPasswordInput">Bevestig wachtwoord</label>
+    <input type="password" id="confirmPasswordInput" placeholder="••••••••" autocomplete="new-password">
+    <button class="login-btn" onclick="submitPasswordReset()">Wachtwoord instellen</button>
+    <p class="login-msg" id="resetMsg"></p>
+  </div>
+</div>
+
 <div id="appScreen">
   <header>
     <div class="header-inner">
@@ -51,6 +72,7 @@
     <div class="header-actions">
       <span id="userEmail"></span>
       <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
+      <button class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html'">Hypotheek leads</button>
       <button class="btn btn-ghost" onclick="window.location.href='changelog.html'">Wijzigingen</button>
       <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
       <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>

@@ -40,6 +40,10 @@ const FIELD_LABELS = {
   bevestigd_b:            'Bevestigd toevoeging B',
   aangevraagd_a:          'Aangevraagd toevoeging A',
   aangevraagd_b:          'Aangevraagd toevoeging B',
+  hypotheek_a:            'Hypotheek lead persoon A',
+  hypotheek_b:            'Hypotheek lead persoon B',
+  hyp_factuur_betaald_a:  'Hyp.fee ontvangen A',
+  hyp_factuur_betaald_b:  'Hyp.fee ontvangen B',
 };
 
 const COLUMN_LABELS = {
@@ -51,7 +55,24 @@ const COLUMN_LABELS = {
   rechtbank: 'Rechtbank',
   gemeente:  'Gemeente',
   afronding: 'Afronding',
+  afgerond:  'Afgerond',
 };
+
+// ── HYPOTHEEK FEE COMPUTED VALUE ──
+// Returns the single "Hyp.fee ontvangen" value derived from both lead persons.
+function computeHypFee(row) {
+  const hasA = row.hypotheek_a === 1;
+  const hasB = row.hypotheek_b === 1;
+  if (!hasA && !hasB) return 'n.v.t.';
+  if (hasA && !hasB) return row.hyp_factuur_betaald_a || null;
+  if (!hasA && hasB) return row.hyp_factuur_betaald_b || null;
+  // Both have a lead
+  const vA = row.hyp_factuur_betaald_a, vB = row.hyp_factuur_betaald_b;
+  if (vA === 'n.v.t.' && vB === 'n.v.t.') return 'n.v.t.';
+  // Ignore n.v.t. entries; if any remaining candidate has no date → no date
+  const candidates = [vA, vB].filter(v => v !== 'n.v.t.');
+  return candidates.every(v => v) ? candidates.slice().sort().reverse()[0] : null;
+}
 
 async function logChange(dossierId, dossierName, fieldLabel, oldValue, newValue, action) {
   action = action || 'Bewerkt';

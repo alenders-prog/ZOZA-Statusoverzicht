@@ -29,6 +29,7 @@ const COLUMNS = [
   { id: 'rechtbank', label: 'Rechtbank',          color: '#B83518' },
   { id: 'gemeente',  label: 'Gemeente',           color: '#7A4E1E' },
   { id: 'afronding', label: 'Afronding',          color: '#1E7A52' },
+  { id: 'afgerond',  label: 'Afgerond',           color: '#5A7A6A' },
 ];
 
 // Fields per column. type: 'date' | 'yn' | 'info_btn' | 'docs_btn'
@@ -91,16 +92,27 @@ const COLUMN_FIELDS = {
   },
   afronding: {
     fields: [
-      { label: 'Ingelicht en beeindigd', key: 'beeindigd',              type: 'date' },
-      { label: 'Vergoeding aangevraagd', key: 'vergoeding_aangevraagd', type: 'date' },
-      { label: 'Vergoeding ontvangen',   key: 'vergoeding_ontvangen',   type: 'date' },
-      { label: 'ZOZA afgerond',          key: 'zoza_afgerond',          type: 'date' },
+      { label: 'Ingelicht en beeindigd', key: 'beeindigd',              type: 'date'     },
+      { label: 'Vergoeding aangevraagd', key: 'vergoeding_aangevraagd', type: 'date'     },
+      { label: 'Vergoeding ontvangen',   key: 'vergoeding_ontvangen',   type: 'date'     },
+      { label: 'ZOZA afgerond',          key: 'zoza_afgerond',          type: 'date'     },
+      { label: 'Hyp.fee ontvangen',                                      type: 'computed', compute: computeHypFee, alarmCheck: isHypFeeOverdue },
+    ],
+    hasOpm: true,
+  },
+  afgerond: {
+    fields: [
+      { label: 'Ingelicht en beeindigd', key: 'beeindigd',              type: 'date'     },
+      { label: 'Vergoeding aangevraagd', key: 'vergoeding_aangevraagd', type: 'date'     },
+      { label: 'Vergoeding ontvangen',   key: 'vergoeding_ontvangen',   type: 'date'     },
+      { label: 'ZOZA afgerond',          key: 'zoza_afgerond',          type: 'date'     },
+      { label: 'Hyp.fee ontvangen',                                      type: 'computed', compute: computeHypFee, alarmCheck: isHypFeeOverdue },
     ],
     hasOpm: true,
   },
 };
 
-const MAX_FIELDS = 4; // pad all cards to this many field rows for uniform height
+const MAX_FIELDS = 5; // pad all cards to this many field rows for uniform height
 
 let rows = [], alarmSettings = {}, currentFilter = 'all';
 let dragRowId = null;
@@ -154,6 +166,7 @@ function getInitialColumn(row) {
 }
 
 function getColumn(row) {
+  if (hasValue(row.zoza_afgerond) && computeHypFee(row) !== null) return 'afgerond';
   if (isRechtbankNee(row)) return getInitialColumn(row);
   return row.kanban_column || getInitialColumn(row);
 }
@@ -316,6 +329,10 @@ function isZozaOverdue(row) {
   return !!(row.beeindigd && row.beeindigd !== 'n.v.t.' && row.vergoeding_ontvangen);
 }
 
+function isHypFeeOverdue(row) {
+  return !computeHypFee(row) && hasValue(row.beeindigd);
+}
+
 function isGeneralOverdue(row, key, prevKey) {
   if (row[key]) return false;
   return !!row[prevKey];
@@ -386,6 +403,7 @@ function countAlarms(row) {
   if (isInschrijvingOverdue(row))           count++;
   if (isBeeindigdOverdue(row))              count++;
   if (isZozaOverdue(row))                   count++;
+  if (isHypFeeOverdue(row))                 count++;
   if (isDocsUrgent(row))                    count++;
   return count;
 }
@@ -606,7 +624,19 @@ function renderCard(row, col) {
       return;
     }
 
-    if (field.type === 'date') {
+    if (field.type === 'computed') {
+      const val = field.compute(row);
+      if (field.alarmCheck && field.alarmCheck(row)) fieldRow.classList.add('alarm');
+      const lbl = document.createElement('span');
+      lbl.className = 'card-field-label';
+      lbl.textContent = field.label;
+      const valEl = document.createElement('span');
+      valEl.className = 'card-field-val' + (!val ? ' empty' : '');
+      valEl.textContent = formatDate(val);
+      fieldRow.appendChild(lbl);
+      fieldRow.appendChild(valEl);
+
+    } else if (field.type === 'date') {
       const val = row[field.key];
       if (FIELD_ALARM_CHECKS[field.key] && FIELD_ALARM_CHECKS[field.key](row)) fieldRow.classList.add('alarm');
 
@@ -952,8 +982,49 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ── PASSWORD RESET ──
+function showPasswordReset() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('resetScreen').style.display = 'flex';
+}
+
+async function submitPasswordReset() {
+  const p1  = document.getElementById('newPasswordInput').value;
+  const p2  = document.getElementById('confirmPasswordInput').value;
+  const msg = document.getElementById('resetMsg');
+  msg.style.color = '';
+  if (!p1 || p1.length < 6) { msg.textContent = 'Wachtwoord moet minimaal 6 tekens zijn.'; return; }
+  if (p1 !== p2)             { msg.textContent = 'Wachtwoorden komen niet overeen.'; return; }
+  msg.textContent = '';
+  const { error } = await db.auth.updateUser({ password: p1 });
+  if (error) { msg.textContent = 'Fout: ' + error.message; return; }
+  msg.style.color = 'green';
+  msg.textContent = 'Wachtwoord gewijzigd! Je wordt ingelogd…';
+  setTimeout(async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if (session) await enterApp(session.user);
+  }, 1500);
+}
+
 // ── INIT ──
 async function init() {
+  // Capture recovery flag immediately — Supabase SDK clears the hash before async code runs
+  const isRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+
+  // Register listener FIRST so PASSWORD_RECOVERY isn't missed while getSession() is awaited
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showPasswordReset();
+    } else if (event === 'SIGNED_IN' && session
+        && document.getElementById('appScreen').style.display  === 'none'
+        && document.getElementById('resetScreen').style.display === 'none') {
+      await enterApp(session.user);
+    }
+  });
+
+  if (isRecovery) { showPasswordReset(); return; }
+
   const timeout = new Promise((_, reject) => setTimeout(() => reject(), 5000));
   try {
     const { data: { session } } = await Promise.race([db.auth.getSession(), timeout]);
@@ -962,11 +1033,6 @@ async function init() {
     } else {
       showLogin();
     }
-    db.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session && document.getElementById('appScreen').style.display === 'none') {
-        await enterApp(session.user);
-      }
-    });
   } catch (e) {
     showLogin();
   }
