@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Handleiding – Statusoverzicht</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ── LAYOUT ── */
+.page { max-width: 820px; margin: 36px auto 60px; padding: 0 20px; }
+
+/* ── TOC ── */
+.toc { background: var(--white); border: 1px solid var(--grey-rule); border-radius: 10px; padding: 22px 26px; margin-bottom: 32px; }
+.toc h2 { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--grey); margin-bottom: 12px; }
+.toc ol { padding-left: 18px; }
+.toc li { margin: 4px 0; }
+.toc a { color: var(--orange-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+.toc a:hover { text-decoration: underline; }
+
+/* ── SECTIONS ── */
+.section { background: var(--white); border: 1px solid var(--grey-rule); border-radius: 10px; padding: 28px 30px; margin-bottom: 20px; scroll-margin-top: 70px; }
+.section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--orange-soft); }
+.section-num { background: var(--orange); color: var(--white); font-size: 0.75rem; font-weight: 800; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.section h2 { font-size: 1.05rem; font-weight: 800; color: var(--ink); }
+
+p { margin-bottom: 10px; color: var(--grey-text); }
+p:last-child { margin-bottom: 0; }
+
+/* ── SUBSECTIONS ── */
+h3 { font-size: 0.88rem; font-weight: 800; color: var(--orange-dark); text-transform: uppercase; letter-spacing: 0.07em; margin: 18px 0 8px; }
+h3:first-of-type { margin-top: 6px; }
+
+/* ── LIST ── */
+ul, ol { padding-left: 20px; margin-bottom: 10px; color: var(--grey-text); }
+li { margin: 4px 0; }
+li:last-child { margin-bottom: 0; }
+
+/* ── PHASE TABLE ── */
+.phase-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.87rem; }
+.phase-table th { background: var(--grey-light); text-align: left; padding: 7px 12px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--grey); border-bottom: 1px solid var(--grey-rule); }
+.phase-table td { padding: 7px 12px; border-bottom: 1px solid var(--grey-rule); vertical-align: top; }
+.phase-table tr:last-child td { border-bottom: none; }
+.phase-table tr:nth-child(even) td { background: var(--grey-light); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex-shrink: 0; }
+
+/* ── ALARM ── */
+.alarm-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; background: #FFF4F4; border: 1px solid #F5DDD7; border-radius: 6px; margin: 6px 0; font-size: 0.87rem; color: var(--grey-text); }
+.alarm-row .alarm-icon { color: #B83518; font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+/* ── TIP ── */
+.tip { background: var(--orange-soft); border-left: 3px solid var(--orange); border-radius: 0 6px 6px 0; padding: 10px 14px; margin: 10px 0; font-size: 0.87rem; color: var(--grey-text); }
+.tip strong { color: var(--orange-dark); }
+
+/* ── INLINE BADGE ── */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; margin: 0 2px; vertical-align: middle; }
+.badge-green { background: var(--green-soft); color: var(--green); }
+.badge-red   { background: #F5DDD7; color: #B83518; }
+.badge-grey  { background: var(--grey-light); color: var(--grey); border: 1px solid var(--grey-rule); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <button class="btn btn-ghost" onclick="history.back()">← Terug</button>
+    <div class="logo-wrap">
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+    </div>
+    <div class="page-title">
+      <h1>Handleiding</h1>
+      <span class="header-subtitle">Statusoverzicht</span>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- INHOUDSOPGAVE -->
+  <div class="toc">
+    <h2>Inhoudsopgave</h2>
+    <ol>
+      <li><a href="#s1">Inloggen en wachtwoord</a></li>
+      <li><a href="#s2">Navigatie</a></li>
+      <li><a href="#s3">Kanban-bord</a></li>
+      <li><a href="#s4">Lijstweergave</a></li>
+      <li><a href="#s5">Dossier – Klantgegevens</a></li>
+      <li><a href="#s6">Dossier – Klantstatus</a></li>
+      <li><a href="#s7">Fases en automatische indeling</a></li>
+      <li><a href="#s8">Alarmen</a></li>
+      <li><a href="#s9">Toevoegingen</a></li>
+      <li><a href="#s10">Hypotheek leads</a></li>
+      <li><a href="#s11">Wijzigingen</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. INLOGGEN -->
+  <div class="section" id="s1">
+    <div class="section-title">
+      <div class="section-num">1</div>
+      <h2>Inloggen en wachtwoord</h2>
+    </div>
+    <p>Ga naar de applicatie-URL en voer je e-mailadres en wachtwoord in. Klik op <strong>Inloggen</strong>.</p>
+
+    <h3>Wachtwoord vergeten</h3>
+    <p>Vraag via de beheerder een wachtwoord-reset aan. Je ontvangt een e-mail met een link. Klik op de link — de applicatie opent automatisch het scherm <em>Nieuw wachtwoord instellen</em>. Voer het nieuwe wachtwoord twee keer in en bevestig.</p>
+    <div class="tip"><strong>Let op:</strong> Supabase staat maximaal 2 reset-e-mails per uur toe per gebruiker.</div>
+  </div>
+
+  <!-- 2. NAVIGATIE -->
+  <div class="section" id="s2">
+    <div class="section-title">
+      <div class="section-num">2</div>
+      <h2>Navigatie</h2>
+    </div>
+    <p>De applicatie bestaat uit de volgende pagina's, bereikbaar via de knoppen in de header:</p>
+    <table class="phase-table">
+      <tr><th>Pagina</th><th>Functie</th></tr>
+      <tr><td><strong>Statusoverzicht</strong> (kanban)</td><td>Alle dossiers per fase als kaarten</td></tr>
+      <tr><td><strong>Lijstweergave</strong></td><td>Alle dossiers in één tabel met alle velden</td></tr>
+      <tr><td><strong>Toevoegingen</strong></td><td>Overzicht van alle dossiers met een toevoeging</td></tr>
+      <tr><td><strong>Hypotheek leads</strong></td><td>Overzicht van doorgestuurde hypotheek-leads</td></tr>
+      <tr><td><strong>Wijzigingen</strong></td><td>Logboek van alle aanpassingen</td></tr>
+      <tr><td><strong>Instellingen</strong></td><td>Termijnen voor alarmen instellen</td></tr>
+    </table>
+    <p style="margin-top:10px;">Vanuit een dossier (Gegevens-pagina) zijn ook directe knoppen beschikbaar naar Toevoegingen, Hypotheek leads en Wijzigingen, vooraf gefilterd op dat dossier.</p>
+  </div>
+
+  <!-- 3. KANBAN -->
+  <div class="section" id="s3">
+    <div class="section-title">
+      <div class="section-num">3</div>
+      <h2>Kanban-bord</h2>
+    </div>
+    <p>Het kanban-bord toont alle actieve dossiers als kaarten, verdeeld over de fases. De indeling in een fase gebeurt <strong>automatisch</strong> op basis van de ingevulde velden — kaarten verplaatsen zichzelf zodra je een datum opslaat in Klantstatus.</p>
+
+    <h3>Kaart-inhoud</h3>
+    <p>Elke kaart toont de klantnaam, de fase-specifieke datumvelden en eventuele opmerkingen (maximaal 2 regels zichtbaar; houd de muis stil op de kaart om de volledige tekst te lezen). Kaarten met een rood veld of rood getal bovenin vereisen actie.</p>
+
+    <h3>Filteren en sorteren</h3>
+    <ul>
+      <li><strong>Zoeken:</strong> typ een naam in het zoekveld — niet-overeenkomende kaarten worden verborgen.</li>
+      <li><strong>Actie vereist:</strong> klik de knop om alleen kaarten met een alarm te tonen.</li>
+      <li><strong>Sortering:</strong> kies Alarm (standaard), A→Z Naam, of Datum.</li>
+    </ul>
+
+    <h3>Nieuw dossier</h3>
+    <p>Klik op <strong>+ Nieuwe klant</strong> rechtsboven. Voer de naam in en bevestig. Het dossier verschijnt in <em>Klanten 1e fase</em>.</p>
+
+    <h3>Dossier openen</h3>
+    <p>Klik op een kaart om de Gegevens-pagina van dat dossier te openen.</p>
+
+    <h3>Afgerond</h3>
+    <p>Zodra het veld <em>ZOZA afgerond</em> én <em>Hyp.fee ontvangen</em> zijn ingevuld (of n.v.t.), verschijnt de kaart automatisch in de fase <strong>Afgerond</strong> aan het einde van het bord.</p>
+  </div>
+
+  <!-- 4. LIJSTWEERGAVE -->
+  <div class="section" id="s4">
+    <div class="section-title">
+      <div class="section-num">4</div>
+      <h2>Lijstweergave</h2>
+    </div>
+    <p>De lijstweergave toont alle dossiers in één tabel. Alle datumvelden zijn direct bewerkbaar door erop te klikken.</p>
+    <ul>
+      <li><strong>Fase-koppen</strong> bovenaan zijn klikbaar om een fase in- of uit te klappen.</li>
+      <li><strong>Sorteren:</strong> klik op een kolomkop.</li>
+      <li><strong>Zoeken / filteren:</strong> zelfde knoppen als in het kanban-bord.</li>
+      <li><strong>Export:</strong> klik op <em>↓ Export CSV</em> om alle data te downloaden.</li>
+      <li><strong>Dossier verwijderen:</strong> klik op het prullenbak-icoon links van de rij; er volgt een 5 seconden undo-mogelijkheid.</li>
+    </ul>
+  </div>
+
+  <!-- 5. KLANTGEGEVENS -->
+  <div class="section" id="s5">
+    <div class="section-title">
+      <div class="section-num">5</div>
+      <h2>Dossier – Klantgegevens</h2>
+    </div>
+    <p>Open een dossier via het kanban-bord of de lijstweergave. De pagina heeft twee tabbladen: <strong>1. Klantgegevens</strong> en <strong>2. Klantstatus</strong>.</p>
+    <p>In <em>Klantgegevens</em> vind je:</p>
+    <ul>
+      <li><strong>Klantinfo:</strong> namen, contactgegevens, type dossier.</li>
+      <li><strong>Dienstverlening:</strong> welke onderdelen van toepassing zijn (rechtbank, woning, pensioen, enz.).</li>
+      <li><strong>Documenten / Aktes:</strong> checklist van aan te leveren stukken per persoon.</li>
+      <li><strong>Toevoegingen:</strong> aan-/uitzetten van toevoeging per persoon.</li>
+      <li><strong>Hypotheek leads:</strong> aan-/uitzetten van hypotheek-lead per persoon.</li>
+    </ul>
+    <div class="tip"><strong>Opslaan:</strong> wijzigingen in Klantgegevens worden automatisch opgeslagen. De sync-indicator rechtsboven toont de status.</div>
+  </div>
+
+  <!-- 6. KLANTSTATUS -->
+  <div class="section" id="s6">
+    <div class="section-title">
+      <div class="section-num">6</div>
+      <h2>Dossier – Klantstatus</h2>
+    </div>
+    <p>Het tabblad <em>Klantstatus</em> bevat alle voortgangsdatums, gegroepeerd per fase. De actieve fase is gemarkeerd met een oranje achtergrond.</p>
+
+    <h3>Datum invoeren</h3>
+    <p>Klik op een veld om de datumkiezer te openen. Selecteer een datum of klik op <strong>n.v.t.</strong> als het veld niet van toepassing is. Klik buiten het veld om te sluiten.</p>
+
+    <h3>Ja / Nee velden</h3>
+    <p>Velden zoals <em>Klant gemaild</em> en <em>Woning</em> zijn dropdowns met Ja / Nee. De keuze wordt direct opgeslagen.</p>
+
+    <h3>Opmerkingen</h3>
+    <p>Het tekstvak <em>Opmerkingen</em> is vrij te bewerken. De datum van de laatste wijziging staat rechts van de titel.</p>
+
+    <h3>Dossier verwijderen</h3>
+    <p>Klik op de rode knop <strong>Verwijder dossier</strong>. Er verschijnt een bevestiging; daarna heb je 5 seconden om de actie ongedaan te maken.</p>
+  </div>
+
+  <!-- 7. FASES -->
+  <div class="section" id="s7">
+    <div class="section-title">
+      <div class="section-num">7</div>
+      <h2>Fases en automatische indeling</h2>
+    </div>
+    <p>Een dossier wordt automatisch in de juiste fase geplaatst op basis van de <strong>meest recente ingevulde datum</strong>. Zodra je een datum opslaat, herberekent het systeem de fase.</p>
+
+    <table class="phase-table">
+      <tr><th>Fase</th><th>Triggerveld(en)</th></tr>
+      <tr>
+        <td><span class="dot" style="background:#F7931E"></span><strong>Klanten 1e fase</strong></td>
+        <td>Startfase — nog geen statusvelden ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#2D6AA0"></span><strong>Controle Advocaat</strong></td>
+        <td>Ter controle of Antwoord ingevuld (maar Verwerkt nog leeg)</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#C47A1A"></span><strong>Klanten concepten</strong></td>
+        <td>Concepten verstuurd, Verwerkt of Reactie ontvangen ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#3E6E3E"></span><strong>Getekend</strong></td>
+        <td>Concepten akkoord of Klanten getekend ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#6D4A9C"></span><strong>Advocaat</strong></td>
+        <td>Belafspraak of Verstuurd Advocaat ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#B83518"></span><strong>Rechtbank</strong></td>
+        <td>Rechtbank, Beschikking, Verstuurd klanten of Akkoord klanten ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#7A4E1E"></span><strong>Gemeente</strong></td>
+        <td>Verstuurd gemeente of Inschrijving ontvangen ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#1E7A52"></span><strong>Afronding</strong></td>
+        <td>Ingelicht, Vergoeding aangevraagd/ontvangen of ZOZA afgerond ingevuld</td>
+      </tr>
+      <tr>
+        <td><span class="dot" style="background:#5A7A6A"></span><strong>Afgerond</strong></td>
+        <td>ZOZA afgerond én Hyp.fee ontvangen allebei ingevuld (of n.v.t.)</td>
+      </tr>
+    </table>
+
+    <div class="tip"><strong>Rechtbank Nee:</strong> bij dossiers waarbij Rechtbank op <em>Nee</em> staat in Dienstverlening, worden de rechtbank- en advocaat-fases overgeslagen.</div>
+  </div>
+
+  <!-- 8. ALARMEN -->
+  <div class="section" id="s8">
+    <div class="section-title">
+      <div class="section-num">8</div>
+      <h2>Alarmen</h2>
+    </div>
+    <p>Alarmen worden automatisch berekend. Een kaart met een alarm krijgt een <span class="badge badge-red">rood getal</span> in de rechterbovenhoek. Rode rijen geven aan welk veld aandacht nodig heeft.</p>
+
+    <p>Voorbeelden van alarmen:</p>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>Actie voor</strong> — de ingestelde datum is verstreken.</span></div>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>Ter controle</strong> — 1e concept is ingevuld maar nog niet verstuurd naar advocaat.</span></div>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>Concepten verstuurd</strong> — Verwerkt is ingevuld maar concepten nog niet verstuurd.</span></div>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>Vergoeding aangevraagd</strong> — dossier is in Gemeente/Afronding maar vergoeding nog niet aangevraagd.</span></div>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>ZOZA afgerond</strong> — beeindigd én vergoeding ontvangen, maar ZOZA afgerond nog leeg.</span></div>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>Hyp.fee ontvangen</strong> — ZOZA afgerond maar hypotheek-factuur nog niet betaald.</span></div>
+    <div class="alarm-row"><span class="alarm-icon">🔴</span><span><strong>Toevoeging bevestigd</strong> — aangevraagd maar niet bevestigd binnen de ingestelde termijn.</span></div>
+
+    <p style="margin-top:10px;">Termijnen voor tijdsgebonden alarmen zijn instelbaar via <strong>Instellingen</strong>.</p>
+  </div>
+
+  <!-- 9. TOEVOEGINGEN -->
+  <div class="section" id="s9">
+    <div class="section-title">
+      <div class="section-num">9</div>
+      <h2>Toevoegingen</h2>
+    </div>
+    <p>De pagina <strong>Toevoegingen</strong> toont alle dossiers waarbij een toevoeging van toepassing is. Per persoon (A en B) zijn de volgende kolommen beschikbaar:</p>
+    <ul>
+      <li><strong>Aangevraagd</strong> — datum dat de toevoeging is aangevraagd.</li>
+      <li><strong>Bevestigd</strong> — datum dat de toevoeging is bevestigd door RvR.</li>
+      <li><strong>Vergoeding aangevraagd</strong> — datum aanvraag vergoeding.</li>
+      <li><strong>Vergoeding ontvangen</strong> — datum ontvangst vergoeding.</li>
+      <li><strong>Opmerkingen</strong> — vrij tekstveld.</li>
+    </ul>
+    <p>Een toevoeging aanzetten doe je via het dossier → tabblad <em>Klantgegevens</em> → tabel <em>Toevoegingen</em>. Zodra ingeschakeld, verschijnt het dossier automatisch op de Toevoegingen-pagina.</p>
+    <div class="tip"><strong>n.v.t.:</strong> als een persoon geen toevoeging heeft maar de andere persoon wel, worden de velden van de niet-toepasselijke persoon automatisch op <em>n.v.t.</em> gezet.</div>
+  </div>
+
+  <!-- 10. HYPOTHEEK LEADS -->
+  <div class="section" id="s10">
+    <div class="section-title">
+      <div class="section-num">10</div>
+      <h2>Hypotheek leads</h2>
+    </div>
+    <p>De pagina <strong>Hypotheek leads</strong> toont alle dossiers waarbij een hypotheek-lead is doorgegeven. Per persoon (A en B) zijn de volgende kolommen beschikbaar:</p>
+    <ul>
+      <li><strong>Doorgestuurd</strong> — datum dat de lead is doorgegeven.</li>
+      <li><strong>Klant geworden</strong> — Ja / Nee dropdown.</li>
+      <li><strong>Factuur gestuurd</strong> — datum factuur verstuurd.</li>
+      <li><strong>Factuur betaald</strong> — datum betaling ontvangen.</li>
+      <li><strong>Opmerkingen</strong> — vrij tekstveld.</li>
+    </ul>
+    <p>Kies <strong>Nee</strong> bij <em>Klant geworden</em> om de factuurvelden automatisch op <em>n.v.t.</em> te zetten.</p>
+    <p>Een hypotheek-lead aanzetten doe je via het dossier → tabblad <em>Klantgegevens</em> → tabel <em>Hypotheek leads</em>.</p>
+    <div class="tip"><strong>Hyp.fee ontvangen</strong> op de kanban-kaart toont de meest relevante betaaldatum automatisch op basis van beide personen.</div>
+  </div>
+
+  <!-- 11. WIJZIGINGEN -->
+  <div class="section" id="s11">
+    <div class="section-title">
+      <div class="section-num">11</div>
+      <h2>Wijzigingen</h2>
+    </div>
+    <p>Het <strong>Wijzigingen-logboek</strong> registreert elke aanpassing automatisch: wie heeft wat gewijzigd, op welk dossier en wanneer.</p>
+    <ul>
+      <li><strong>Zoeken:</strong> filter op klantnaam, veldnaam of gebruiker.</li>
+      <li><strong>Actie-badges:</strong> <span class="badge" style="background:#DEEAF6;color:#2D6AA0;">Bewerkt</span> <span class="badge badge-green">Aangemaakt</span> <span class="badge badge-red">Verwijderd</span> <span class="badge" style="background:#EAE0F6;color:#6D4A9C;">Verplaatst</span></li>
+      <li><strong>Export:</strong> klik op <em>↓ Export CSV</em> voor een download van het volledige logboek.</li>
+    </ul>
+    <p>Vanuit een dossier kun je direct naar de wijzigingen van dát dossier via de knop <strong>Wijzigingen</strong> in de header — de zoekbalk is dan al voorgevuld met de klantnaam.</p>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL      = 'https://iubmajperipojqtlhwqk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Ym1hanBlcmlwb2pxdGxod3FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODM2MzcsImV4cCI6MjA5NDA1OTYzN30.IiUQAGO9rFuSC2LQlFr6dzmQPatCS-N7mjZdJzEQRNs';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+async function signOut() { await db.auth.signOut(); window.location.href = 'index.html'; }
+db.auth.getSession().then(({ data }) => {
+  if (data.session) {
+    const el = document.getElementById('userEmail');
+    if (el) el.textContent = data.session.user.email;
+  }
+});
+</script>
+</body>
+</html>

@@ -163,6 +163,15 @@ header {
   gap: 14px;
   padding: 10px 0;
   flex: 1;
+  position: relative;
+}
+.header-nav {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 .header-logo { width: 30px; height: 30px; flex-shrink: 0; }
 .logo-wrap {
@@ -226,6 +235,7 @@ header h1 {
 .btn-primary:hover { background: var(--orange-dark); border-color: var(--orange-dark); color: var(--white); }
 .btn-ghost { color: var(--grey-text); background: var(--white); border-color: var(--grey-rule); }
 .btn-ghost:hover { border-color: var(--orange); color: var(--orange); background: var(--white); }
+.btn-ghost.nav-active, .btn-ghost.nav-active:hover { background: var(--orange); border-color: var(--orange); color: var(--white); font-weight: 800; }
 
 /* ══════════════════════════════
    TOOLBAR
@@ -476,7 +486,6 @@ header h1 {
   border: 1px solid var(--grey-rule);
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  cursor: pointer;
   transition: box-shadow 0.18s, transform 0.18s;
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
@@ -487,8 +496,8 @@ header h1 {
 .card.expanded .card-opm  { -webkit-line-clamp: unset; overflow: visible; }
 
 .card-top-border { height: 4px; width: 100%; flex-shrink: 0; }
-.card-top-area   { flex-shrink: 0; display: flex; flex-direction: column; padding: 8px 12px 6px 16px; }
-.card-body       { padding: 4px 12px 10px 16px; display: flex; flex-direction: column; }
+.card-top-area   { flex-shrink: 0; display: flex; flex-direction: column; padding: 8px 12px 6px 16px; cursor: pointer; }
+.card-body       { padding: 4px 12px 10px 16px; display: flex; flex-direction: column; cursor: pointer; }
 .card-header     { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; flex-shrink: 0; }
 
 .card-name {

@@ -84,35 +84,36 @@ thead tr.col-row th.ph-blank { background: var(--orange) !important; border-bott
         <h1>Statusoverzicht</h1>
         <span class="header-subtitle">Dossier Beheer</span>
       </div>
-      <div class="header-actions">
-        <span id="userEmail"></span>
-        <button class="btn btn-ghost" onclick="exportCSV()">↓ Export CSV</button>
-        <button class="btn btn-ghost" onclick="window.location.href='changelog.html'">Wijzigingen</button>
+      <div class="header-nav">
+        <button class="btn btn-ghost" onclick="window.location.href='index.html'">Kaartweergave</button>
+        <button class="btn btn-ghost nav-active" onclick="window.location.href='statusoverzicht.html'">Lijstweergave</button>
         <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
         <button class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html'">Hypotheek leads</button>
-        <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
         <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
       </div>
     </div>
   </header>
 
   <div class="toolbar">
-    <div class="view-toggle">
-      <button class="view-btn" title="Kaartweergave" onclick="window.location.href='index.html'"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></button>
-      <button class="view-btn active" title="Lijstweergave" onclick="window.location.href='statusoverzicht.html'"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg></button>
-    </div>
     <div class="search-box">
       <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
-      <input type="text" id="searchInput" placeholder="Zoek op klantnaam..." oninput="filterRows();document.getElementById('searchClear').style.display=this.value?'flex':'none'">
-      <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';filterRows();this.style.display='none';document.getElementById('searchInput').focus()">×</button>
+      <input type="text" id="searchInput" placeholder="Zoek op klantnaam..." oninput="sessionStorage.setItem('sharedSearch',this.value);filterRows();document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+      <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';sessionStorage.removeItem('sharedSearch');filterRows();this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
     <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
     <button class="filter-tag" onclick="setFilter('incomplete', this)">Onvolledig</button>
     <button class="filter-tag" onclick="setFilter('complete', this)">Afgerond</button>
     <button class="filter-tag" id="opmerkingenToggle" onclick="toggleOpmerkingen()">Opmerkingen altijd zichtbaar</button>
-    <button class="btn btn-primary" onclick="addRow()">+ Nieuwe klant</button>
+    <button class="btn btn-ghost" onclick="addRow()">+ Nieuwe klant</button>
     <span class="sync-status" id="syncStatus">● opgeslagen</span>
     <span class="record-count" id="recordCount">0 dossiers</span>
+    <button class="btn btn-ghost" style="margin-left:auto" onclick="exportCSV()">↓ Export CSV</button>
+    <button class="btn btn-ghost" onclick="window.location.href='handleiding.html'">Handleiding</button>
+    <button class="btn btn-ghost" onclick="window.location.href='changelog.html'">Wijzigingen</button>
+    <button class="btn btn-ghost" onclick="window.location.href='settings.html'">Instellingen</button>
   </div>
 
   <div class="table-scroll">
@@ -306,6 +307,13 @@ async function enterApp(user) {
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
     applyOpmerkingenFixed();
+    const savedSearch = sessionStorage.getItem('sharedSearch');
+    if (savedSearch) {
+      const el = document.getElementById('searchInput');
+      el.value = savedSearch;
+      document.getElementById('searchClear').style.display = 'flex';
+      filterRows();
+    }
   }
 }
 

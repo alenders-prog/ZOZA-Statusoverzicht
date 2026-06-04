@@ -102,8 +102,15 @@
         <h1>Toevoegingen</h1>
         <span class="header-subtitle">Overzicht</span>
       </div>
+      <div class="header-nav">
+        <button class="btn btn-ghost" onclick="window.location.href='index.html'">Kaartweergave</button>
+        <button class="btn btn-ghost" onclick="window.location.href='statusoverzicht.html'">Lijstweergave</button>
+        <button class="btn btn-ghost nav-active" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
+        <button class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html'">Hypotheek leads</button>
+      </div>
       <div class="header-actions">
         <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
       </div>
     </div>
   </header>
@@ -111,10 +118,11 @@
   <div class="toolbar">
     <div class="search-box">
       <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
-      <input type="text" id="searchInput" placeholder="Zoek op dossiernaam..." oninput="filterRows(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
-      <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';filterRows('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
+      <input type="text" id="searchInput" placeholder="Zoek op dossiernaam..." oninput="sessionStorage.setItem('sharedSearch',this.value);filterRows(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+      <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';sessionStorage.removeItem('sharedSearch');filterRows('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
     <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
+    <button class="btn btn-ghost" style="margin-left:auto" onclick="exportCSV()">↓ Export CSV</button>
   </div>
 
   <div style="margin:32px 0;padding:0 28px;">
@@ -587,8 +595,28 @@ async function init() {
     }
   }
 
+  if (!filterId) {
+    const savedSearch = sessionStorage.getItem('sharedSearch');
+    if (savedSearch) {
+      const el = document.getElementById('searchInput');
+      el.value = savedSearch;
+      document.getElementById('searchClear').style.display = 'flex';
+      filterRows(savedSearch);
+    }
+  }
   renderTable();
   sizeFlexColumns();
+}
+
+function exportCSV() {
+  const headers = COLUMNS.map(c => c.label);
+  const escape = v => '"' + String(v == null || v === '—' ? '' : v).replace(/"/g, '""') + '"';
+  const csvRows = [headers.map(escape).join(',')];
+  rows.forEach(r => csvRows.push(r.cells.map(escape).join(',')));
+  const blob = new Blob(['﻿' + csvRows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'toevoegingen.csv'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 init();

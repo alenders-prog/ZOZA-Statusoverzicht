@@ -153,8 +153,8 @@ function getInitialColumn(row) {
   if (!rnee && hasValue(row.akkoord_klanter))                                     return 'gemeente';
   if (!rnee && (hasValue(row.verstuurd_klanten) || hasValue(row.beschikking)))    return 'rechtbank';
   if (!rnee && hasValue(row.rechtbank))                                           return 'rechtbank';
-  if (!rnee && hasValue(row.belafspraak))                                         return 'advocaat';
   if (!rnee && hasValue(row.docs_verstuurd))                                      return 'advocaat';
+  if (!rnee && hasValue(row.belafspraak))                                         return 'getekend';
   if (hasValue(row.akkoord_klanten))                                              return rnee ? 'afronding' : 'getekend';
   if (hasValue(row.concepten_akkoord))                                            return 'getekend';
   if (hasValue(row.reactie_ontvangen))                                            return 'concepten';
@@ -759,7 +759,10 @@ function renderCard(row, col) {
 
   card.appendChild(body);
 
-  card.addEventListener('click', () => {
+  topArea.addEventListener('click', () => {
+    if (row.id) window.location.href = `info.html?id=${row.id}&tab=klantgegevens`;
+  });
+  body.addEventListener('click', () => {
     if (row.id) window.location.href = `info.html?id=${row.id}&tab=klantstatus`;
   });
 
@@ -972,7 +975,7 @@ async function enterApp(user) {
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
     initKanbanScroll();
-    const savedSearch = sessionStorage.getItem('kanbanSearch');
+    const savedSearch = sessionStorage.getItem('sharedSearch');
     if (savedSearch) {
       const searchEl = document.getElementById('searchInput');
       searchEl.value = savedSearch;

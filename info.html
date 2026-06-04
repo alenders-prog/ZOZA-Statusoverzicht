@@ -204,15 +204,22 @@ main { padding: 28px 32px; display: none; }
       <div class="klant-name" id="klantName">—</div>
       <div class="header-subtitle">Gegevens</div>
     </div>
+    <div class="header-nav">
+      <button class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='index.html'">Kaartweergave</button>
+      <button class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='statusoverzicht.html'">Lijstweergave</button>
+      <button id="toevoegingenBtn" class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='toevoegingen.html'">Toevoegingen</button>
+      <button id="hypotheekBtn" class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='hypotheeklead.html'">Hypotheek leads</button>
+    </div>
     <div class="header-actions">
       <span class="sync" id="syncStatus">● opgeslagen</span>
-      <button id="toevoegingenBtn" class="btn btn-ghost" onclick="window.location.href='toevoegingen.html?id='+dossierId">Toevoegingen</button>
-      <button id="hypotheekBtn" class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html?id='+dossierId">Hypotheek leads</button>
-      <button class="btn btn-ghost" onclick="window.location.href='changelog.html?q='+encodeURIComponent(document.getElementById('klantName').textContent)">Wijzigingen</button>
-      <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
     </div>
   </div>
 </header>
+
+<div class="toolbar">
+  <button class="btn btn-ghost" style="margin-left:auto" onclick="window.location.href='changelog.html?q='+encodeURIComponent(document.getElementById('klantName').textContent)">Wijzigingen</button>
+  <button class="btn-delete-klant" onclick="openDeleteModal()">Verwijder klant</button>
+</div>
 
 <div class="modal-overlay" id="deleteModal">
   <div class="modal">
@@ -424,8 +431,8 @@ function getInitialColumn(d) {
   if (!rnee && hasValue(d.akkoord_klanter))                             return 'gemeente';
   if (!rnee && (hasValue(d.verstuurd_klanten) || hasValue(d.beschikking))) return 'rechtbank';
   if (!rnee && hasValue(d.rechtbank))                                   return 'rechtbank';
-  if (!rnee && hasValue(d.belafspraak))                                 return 'advocaat';
   if (!rnee && hasValue(d.docs_verstuurd))                              return 'advocaat';
+  if (!rnee && hasValue(d.belafspraak))                                 return 'getekend';
   if (hasValue(d.akkoord_klanten))                                      return rnee ? 'afronding' : 'getekend';
   if (hasValue(d.concepten_akkoord))                                    return 'getekend';
   if (hasValue(d.reactie_ontvangen))                                      return 'concepten';
@@ -464,12 +471,7 @@ function refreshStatusAlarms() {
     });
   });
   refreshPhaseHighlight();
-  const hasToev = statusData.toevoeging_a === 1 || statusData.toevoeging_b === 1;
-  const toevBtn = document.getElementById('toevoegingenBtn');
-  if (toevBtn) toevBtn.style.display = hasToev ? '' : 'none';
-  const hasHyp = statusData.hypotheek_a === 1 || statusData.hypotheek_b === 1;
-  const hypBtn = document.getElementById('hypotheekBtn');
-  if (hypBtn) hypBtn.style.display = hasHyp ? '' : 'none';
+  // Toevoegingen and Hypotheek leads buttons always visible in header-nav
 }
 
 function formatOpmTs(iso) {
