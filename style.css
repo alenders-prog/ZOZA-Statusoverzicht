@@ -124,6 +124,7 @@ body {
   color: var(--ink);
   min-height: 100vh;
   overflow-x: hidden;
+  position: relative;
 }
 
 /* ══════════════════════════════
@@ -346,7 +347,6 @@ header h1 {
   .header-nav .btn { flex-shrink: 0; }
 
   /* ── Toolbar ── */
-  #appScreen { max-width: 100vw; overflow-x: hidden; }
   .toolbar {
     flex-wrap: nowrap;
     overflow-x: auto;
