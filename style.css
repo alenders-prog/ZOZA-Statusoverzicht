@@ -118,6 +118,7 @@
   --phase5-soft:  #F5DDD7;
 }
 
+html { overflow-x: hidden; }
 body {
   font-family: 'Nunito', sans-serif;
   background: var(--grey-light);
@@ -338,6 +339,7 @@ header h1 {
     padding: 4px 0;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     scrollbar-width: none;
     flex-wrap: nowrap;
     border-top: 1px solid var(--grey-rule);
@@ -350,6 +352,7 @@ header h1 {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     padding: 8px 16px;
     gap: 8px;
     scrollbar-width: none;
