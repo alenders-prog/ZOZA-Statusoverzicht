@@ -85,11 +85,11 @@
   <div class="toolbar">
     <div class="search-box">
       <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
-      <input type="text" id="searchInput" placeholder="Zoek op klantnaam..." oninput="sessionStorage.setItem('sharedSearch',this.value);filterCards(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+      <input type="text" id="searchInput" aria-label="Zoek op klantnaam" placeholder="Zoek op klantnaam..." oninput="sessionStorage.setItem('sharedSearch',this.value);filterCards(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
       <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';sessionStorage.removeItem('sharedSearch');filterCards('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
     <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
-    <select class="kanban-sort-select toolbar-sort" onchange="setSort(this.value)">
+    <select class="kanban-sort-select toolbar-sort" aria-label="Sorteervolgorde" onchange="setSort(this.value)">
       <option value="alarm">⚡ Alarm</option>
       <option value="naam">A→Z Naam</option>
       <option value="datum">Datum</option>
@@ -101,7 +101,7 @@
   </div>
   <div class="kanban-wrapper" id="kanbanBoard"></div>
   <div class="kanban-scroll-track" id="kanbanScrollTrack" style="display:none">
-    <input type="range" id="kanbanScroller" min="0" value="0" step="1">
+    <input type="range" id="kanbanScroller" aria-label="Kanban horizontaal scrollen" min="0" value="0" step="1">
   </div>
 </div>
 
