@@ -321,6 +321,25 @@ header h1 {
   align-items: center;
   flex-wrap: wrap;
 }
+.toolbar-sep { margin-left: auto; }
+
+@media (max-width: 768px) {
+  .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 16px;
+    gap: 8px;
+    scrollbar-width: none;
+  }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .toolbar .toolbar-sep { margin-left: 0; }
+  .toolbar .btn,
+  .toolbar .filter-tag,
+  .toolbar .toolbar-sort,
+  .toolbar .search-box { flex-shrink: 0; }
+  .search-box { min-width: 160px; }
+}
 .view-toggle {
   display: flex;
   border: 1.5px solid var(--grey-rule);
