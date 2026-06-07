@@ -391,6 +391,182 @@
 }
 .new-title-input:focus { border-color: var(--orange); }
 
+/* ── View toggle ── */
+.view-toggle {
+  display: flex;
+  background: var(--grey-rule);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.view-btn {
+  border-radius: 6px !important;
+  padding: 4px 14px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  color: var(--grey) !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.view-btn.active {
+  background: var(--white) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
+}
+
+/* ── Week grid ── */
+.week-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+  overflow: hidden;
+}
+.week-header-row {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  border-bottom: 1px solid var(--grey-rule);
+  flex-shrink: 0;
+  background: var(--white);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.week-header-cell {
+  text-align: center;
+  padding: 8px 4px 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--grey);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.week-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 2px auto 0;
+}
+.week-header-cell.today-header .week-day-num {
+  background: #4285F4;
+  color: #fff;
+}
+.week-allday-row {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  border-bottom: 1px solid var(--grey-rule);
+  min-height: 26px;
+  background: var(--white);
+  flex-shrink: 0;
+}
+.week-allday-gutter {
+  font-size: 0.58rem;
+  color: var(--grey);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 4px 6px 0 0;
+}
+.week-allday-col {
+  border-left: 1px solid var(--grey-rule);
+  padding: 2px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.week-allday-event {
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.week-body-scroll {
+  overflow-y: auto;
+  flex: 1;
+}
+.week-body {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  position: relative;
+}
+.week-time-gutter {
+  position: relative;
+  grid-column: 1;
+}
+.week-time-label {
+  position: absolute;
+  right: 8px;
+  font-size: 0.58rem;
+  color: var(--grey);
+  transform: translateY(-50%);
+  white-space: nowrap;
+  line-height: 1;
+  pointer-events: none;
+}
+.week-day-col {
+  position: relative;
+  border-left: 1px solid var(--grey-rule);
+}
+.week-day-col.today-col { background: rgba(66,133,244,0.03); }
+.week-hour-line {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 1px solid #f0f0f0;
+  pointer-events: none;
+}
+.week-half-line {
+  position: absolute;
+  left: 0; right: 0;
+  border-top: 1px dashed #f5f5f5;
+  pointer-events: none;
+}
+.week-event {
+  position: absolute;
+  left: 2px; right: 2px;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  line-height: 1.3;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  z-index: 1;
+  transition: filter 0.1s;
+}
+.week-event:hover { filter: brightness(0.9); z-index: 2; }
+.week-event .ev-time { opacity: 0.85; font-size: 0.56rem; font-weight: 600; }
+.week-event .ev-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.week-now-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: #EA4335;
+  z-index: 3;
+  pointer-events: none;
+}
+.week-now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px; top: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #EA4335;
+}
+
 /* ── Skeleton loader ── */
 .skeleton {
   background: linear-gradient(90deg, #F0F0F0 25%, #E0E0E0 50%, #F0F0F0 75%);
@@ -470,6 +646,12 @@
       <button class="btn btn-ghost" id="todayBtn">Vandaag</button>
     </div>
 
+    <!-- View toggle -->
+    <div class="view-toggle" style="margin-left:12px">
+      <button class="view-btn active" id="viewList" onclick="setView('list')">Lijst</button>
+      <button class="view-btn" id="viewWeek" onclick="setView('week')">Week</button>
+    </div>
+
     <!-- Sync status -->
     <span id="syncStatus" class="sync-status" style="margin-left:16px"></span>
 
@@ -538,6 +720,9 @@
         <!-- Day groups rendered here -->
       </div>
 
+      <!-- Week grid (rendered by JS) -->
+      <div id="weekGrid" style="display:none"></div>
+
       <!-- Empty state -->
       <div id="emptyState" class="agenda-empty" style="display:none">
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#F5F5F5"/><path d="M12 16h16M12 22h10" stroke="#CCCCCC" stroke-width="2" stroke-linecap="round"/></svg>
@@ -586,6 +771,12 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const GOOGLE_CLIENT_ID = '784440454526-p6avrljddbbtlq2okrgv93s7omrmufnn.apps.googleusercontent.com';
 const GOOGLE_SCOPES    = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 
+// ── Week grid constants ──
+const PX_PER_HOUR   = 60;
+const GRID_START    = 7;   // 07:00
+const GRID_END      = 22;  // 22:00
+const GRID_HOURS    = GRID_END - GRID_START;
+
 // ── State ──
 let googleAccessToken = null;
 let googleTokenExpiry = null;
@@ -595,6 +786,8 @@ let allDossiers       = [];     // from Supabase
 let currentWeekStart  = startOfWeek(new Date());
 let matchQueue        = [];     // pending name-match suggestions
 let currentMatch      = null;
+let currentView       = 'list'; // 'list' | 'week'
+let lastEvents        = [];
 
 // ── Date helpers ──
 function startOfWeek(d) {
@@ -1001,8 +1194,26 @@ function skipAllMatches() {
   document.getElementById('matchModal').style.display = 'none';
 }
 
+// ── Calendar selection persistence ──
+function saveCalendarSelections() {
+  const state = {};
+  allCalendars.forEach(c => { state[c.id] = c.selected; });
+  localStorage.setItem('gcal_selections', JSON.stringify(state));
+}
+
+function restoreCalendarSelections() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('gcal_selections') || '{}');
+    allCalendars.forEach(c => {
+      if (c.id in saved) c.selected = saved[c.id];
+    });
+  } catch(e) { /* ignore */ }
+}
+
 // ── Render ──
 function renderCalendarList() {
+  restoreCalendarSelections();
+
   const list = document.getElementById('calList');
   document.getElementById('calListEmpty').style.display = allCalendars.length ? 'none' : 'block';
   list.innerHTML = '';
@@ -1019,6 +1230,7 @@ function renderCalendarList() {
 
     item.querySelector('input').onchange = (e) => {
       cal.selected = e.target.checked;
+      saveCalendarSelections();
       loadEvents();
     };
 
@@ -1027,9 +1239,16 @@ function renderCalendarList() {
 }
 
 function renderEvents(events) {
+  lastEvents = events;
   if (!events.length) { setAgendaState('empty'); return; }
-  setAgendaState('events');
 
+  if (currentView === 'week') {
+    setAgendaState('week');
+    renderWeekGrid(events);
+    return;
+  }
+
+  setAgendaState('events');
   const container = document.getElementById('agendaEvents');
   container.innerHTML = '';
 
@@ -1064,6 +1283,142 @@ function renderEvents(events) {
 
     container.appendChild(group);
   });
+}
+
+function renderWeekGrid(events) {
+  const container = document.getElementById('weekGrid');
+  container.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'week-grid-wrap';
+
+  // ── Day header row ──
+  const header = document.createElement('div');
+  header.className = 'week-header-row';
+  header.innerHTML = '<div class="week-header-cell"></div>'; // gutter placeholder
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(currentWeekStart, i);
+    const cell = document.createElement('div');
+    cell.className = 'week-header-cell' + (isToday(d) ? ' today-header' : '');
+    cell.innerHTML = `
+      <div>${d.toLocaleDateString('nl-NL', { weekday: 'short' })}</div>
+      <div class="week-day-num">${d.getDate()}</div>
+    `;
+    header.appendChild(cell);
+  }
+  wrap.appendChild(header);
+
+  // ── All-day events row ──
+  const allDayEvs = events.filter(ev => !ev.start.dateTime);
+  const alldayRow = document.createElement('div');
+  alldayRow.className = 'week-allday-row';
+  alldayRow.innerHTML = '<div class="week-allday-gutter">hele dag</div>';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(currentWeekStart, i);
+    const col = document.createElement('div');
+    col.className = 'week-allday-col';
+    allDayEvs
+      .filter(ev => new Date(ev.start.date).toDateString() === d.toDateString())
+      .forEach(ev => {
+        const pill = document.createElement('div');
+        pill.className = 'week-allday-event';
+        pill.style.background = ev.calendarColor || '#4285F4';
+        pill.textContent = ev.summary || '(geen titel)';
+        pill.title = ev.summary;
+        col.appendChild(pill);
+      });
+    alldayRow.appendChild(col);
+  }
+  wrap.appendChild(alldayRow);
+
+  // ── Scrollable body ──
+  const bodyScroll = document.createElement('div');
+  bodyScroll.className = 'week-body-scroll';
+
+  const totalPx = GRID_HOURS * PX_PER_HOUR;
+  const body = document.createElement('div');
+  body.className = 'week-body';
+  body.style.height = totalPx + 'px';
+
+  // Time gutter
+  const gutter = document.createElement('div');
+  gutter.className = 'week-time-gutter';
+  gutter.style.height = totalPx + 'px';
+  for (let h = GRID_START; h <= GRID_END; h++) {
+    const label = document.createElement('div');
+    label.className = 'week-time-label';
+    label.style.top = ((h - GRID_START) * PX_PER_HOUR) + 'px';
+    label.textContent = h + ':00';
+    gutter.appendChild(label);
+  }
+  body.appendChild(gutter);
+
+  // Day columns
+  const timedEvs = events.filter(ev => ev.start.dateTime);
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(currentWeekStart, i);
+    const col = document.createElement('div');
+    col.className = 'week-day-col' + (isToday(d) ? ' today-col' : '');
+    col.style.height = totalPx + 'px';
+
+    // Hour + half-hour lines
+    for (let h = 0; h < GRID_HOURS; h++) {
+      const line = document.createElement('div');
+      line.className = 'week-hour-line';
+      line.style.top = (h * PX_PER_HOUR) + 'px';
+      col.appendChild(line);
+      const half = document.createElement('div');
+      half.className = 'week-half-line';
+      half.style.top = (h * PX_PER_HOUR + 30) + 'px';
+      col.appendChild(half);
+    }
+
+    // Events for this day
+    timedEvs
+      .filter(ev => new Date(ev.start.dateTime).toDateString() === d.toDateString())
+      .forEach(ev => {
+        const start = new Date(ev.start.dateTime);
+        const end   = new Date(ev.end?.dateTime || ev.start.dateTime);
+        const startMin = (start.getHours() - GRID_START) * 60 + start.getMinutes();
+        const endMin   = (end.getHours()   - GRID_START) * 60 + end.getMinutes();
+        const top    = Math.max(0, startMin);
+        const height = Math.max(18, endMin - startMin);
+
+        const block = document.createElement('div');
+        block.className = 'week-event';
+        block.style.top    = top + 'px';
+        block.style.height = height + 'px';
+        block.style.background = ev.calendarColor || '#4285F4';
+        block.title = `${ev.summary || '(geen titel)'}\n${formatTime(ev.start.dateTime)} – ${formatTime(ev.end?.dateTime)}`;
+        block.innerHTML = `
+          <div class="ev-time">${formatTime(ev.start.dateTime)}</div>
+          <div class="ev-title">${ev.summary || '(geen titel)'}</div>
+        `;
+        col.appendChild(block);
+      });
+
+    // Current time line on today
+    if (isToday(d)) {
+      const now    = new Date();
+      const nowMin = (now.getHours() - GRID_START) * 60 + now.getMinutes();
+      if (nowMin >= 0 && nowMin <= GRID_HOURS * 60) {
+        const nowLine = document.createElement('div');
+        nowLine.className = 'week-now-line';
+        nowLine.style.top = nowMin + 'px';
+        col.appendChild(nowLine);
+      }
+    }
+
+    body.appendChild(col);
+  }
+
+  bodyScroll.appendChild(body);
+  wrap.appendChild(bodyScroll);
+  container.appendChild(wrap);
+
+  // Scroll to current hour (or 08:00)
+  const scrollHour = Math.max(GRID_START, new Date().getHours() - 1);
+  bodyScroll.scrollTop = (scrollHour - GRID_START) * PX_PER_HOUR;
 }
 
 function buildEventCard(ev) {
@@ -1107,11 +1462,21 @@ function buildEventCard(ev) {
   return card;
 }
 
+// ── View toggle ──
+function setView(view) {
+  currentView = view;
+  document.getElementById('viewList').classList.toggle('active', view === 'list');
+  document.getElementById('viewWeek').classList.toggle('active', view === 'week');
+  if (lastEvents.length) renderEvents(lastEvents);
+  else if (view === 'week') setAgendaState('empty');
+}
+
 // ── UI state helpers ──
 function setAgendaState(state) {
   document.getElementById('notConnectedState').style.display = state === 'disconnected' ? 'flex'  : 'none';
   document.getElementById('loadingState').style.display      = state === 'loading'      ? 'block' : 'none';
   document.getElementById('agendaEvents').style.display      = state === 'events'       ? 'block' : 'none';
+  document.getElementById('weekGrid').style.display          = state === 'week'         ? 'block' : 'none';
   document.getElementById('emptyState').style.display        = state === 'empty'        ? 'flex'  : 'none';
 }
 
