@@ -9,7 +9,7 @@
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js" integrity="sha384-o+Hkm/usHFhCEWo1Ae1cLsOLiQQNrD2UfI424QDAaiZR7URnC8v35ey7s2sbGZHB" crossorigin="anonymous"></script>
 <!-- Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" defer></script>
 <style>
 
 /* ── Google connect banner ── */
@@ -638,20 +638,29 @@ function updateDateLabel() {
 
 // ── Google Auth ──
 function connectGoogle() {
-  if (!tokenClient) {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: GOOGLE_SCOPES,
-      callback: (response) => {
-        if (response.error) { showToast('Google koppeling mislukt: ' + response.error); return; }
-        googleAccessToken = response.access_token;
-        googleTokenExpiry = Date.now() + (response.expires_in * 1000);
-        sessionStorage.setItem('gcal_token', JSON.stringify({ token: googleAccessToken, expiry: googleTokenExpiry }));
-        onGoogleConnected();
-      }
-    });
+  if (typeof google === 'undefined' || !google.accounts) {
+    showToast('Google bibliotheek nog niet geladen — probeer opnieuw');
+    return;
   }
-  tokenClient.requestAccessToken();
+  try {
+    if (!tokenClient) {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: GOOGLE_SCOPES,
+        callback: (response) => {
+          if (response.error) { showToast('Google koppeling mislukt: ' + response.error); return; }
+          googleAccessToken = response.access_token;
+          googleTokenExpiry = Date.now() + (response.expires_in * 1000);
+          sessionStorage.setItem('gcal_token', JSON.stringify({ token: googleAccessToken, expiry: googleTokenExpiry }));
+          onGoogleConnected();
+        }
+      });
+    }
+    tokenClient.requestAccessToken();
+  } catch(e) {
+    showToast('Google koppeling mislukt: ' + e.message);
+    console.error('connectGoogle error:', e);
+  }
 }
 
 function disconnectGoogle() {
