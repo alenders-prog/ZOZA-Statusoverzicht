@@ -10,7 +10,7 @@
         { "key": "X-XSS-Protection",               "value": "0" },
         { "key": "Cross-Origin-Opener-Policy",     "value": "same-origin" },
         { "key": "Cross-Origin-Resource-Policy",   "value": "same-origin" },
-        { "key": "Content-Security-Policy",        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://iubmajperipojqtlhwqk.supabase.co wss://iubmajperipojqtlhwqk.supabase.co; img-src 'self' data:; frame-ancestors 'none'" }
+        { "key": "Content-Security-Policy",        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://accounts.google.com; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://iubmajperipojqtlhwqk.supabase.co wss://iubmajperipojqtlhwqk.supabase.co https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; img-src 'self' data:; frame-ancestors 'none'" }
       ]
     }
   ]
