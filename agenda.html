@@ -583,13 +583,13 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ── Google OAuth config ──
-// TODO: replace with your actual Google Cloud OAuth Client ID
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '784440454526-p6avrljddbbtlq2okrgv93s7omrmufnn.apps.googleusercontent.com';
 const GOOGLE_SCOPES    = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly';
 
 // ── State ──
 let googleAccessToken = null;
 let googleTokenExpiry = null;
+let tokenClient       = null;
 let allCalendars      = [];     // [{ id, summary, backgroundColor, selected }]
 let allDossiers       = [];     // from Supabase
 let currentWeekStart  = startOfWeek(new Date());
@@ -638,29 +638,30 @@ function updateDateLabel() {
 
 // ── Google Auth ──
 function connectGoogle() {
-  // TODO: initialize Google Identity Services token client and request token
-  // Example:
-  // const client = google.accounts.oauth2.initTokenClient({
-  //   client_id: GOOGLE_CLIENT_ID,
-  //   scope: GOOGLE_SCOPES,
-  //   callback: (response) => {
-  //     if (response.error) { showToast('Google koppeling mislukt'); return; }
-  //     googleAccessToken = response.access_token;
-  //     googleTokenExpiry = Date.now() + (response.expires_in * 1000);
-  //     onGoogleConnected();
-  //   }
-  // });
-  // client.requestAccessToken();
-  showToast('Google koppeling: voeg eerst je Client ID toe aan de code.');
+  if (!tokenClient) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SCOPES,
+      callback: (response) => {
+        if (response.error) { showToast('Google koppeling mislukt: ' + response.error); return; }
+        googleAccessToken = response.access_token;
+        googleTokenExpiry = Date.now() + (response.expires_in * 1000);
+        sessionStorage.setItem('gcal_token', JSON.stringify({ token: googleAccessToken, expiry: googleTokenExpiry }));
+        onGoogleConnected();
+      }
+    });
+  }
+  tokenClient.requestAccessToken();
 }
 
 function disconnectGoogle() {
   if (googleAccessToken) {
-    // TODO: google.accounts.oauth2.revoke(googleAccessToken)
+    google.accounts.oauth2.revoke(googleAccessToken, () => {});
   }
   googleAccessToken = null;
   googleTokenExpiry = null;
   allCalendars = [];
+  sessionStorage.removeItem('gcal_token');
   showNotConnected();
 }
 
@@ -669,42 +670,55 @@ function isGoogleConnected() {
 }
 
 async function onGoogleConnected() {
-  // Show connected UI
   document.getElementById('notConnectedState').style.display = 'none';
   document.getElementById('gcalUser').style.display = 'flex';
   document.getElementById('gcalDisconnect').style.display = 'block';
 
-  // TODO: fetch Google profile email
-  // const profile = await gapi.client.people.people.get(...)
-  // document.getElementById('gcalEmail').textContent = profile.emailAddresses[0].value;
-  document.getElementById('gcalEmail').textContent = '(Google account)';
+  // Fetch Google profile email
+  try {
+    const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${googleAccessToken}` }
+    });
+    const profile = await resp.json();
+    document.getElementById('gcalEmail').textContent = profile.email || '(Google account)';
+  } catch(e) {
+    document.getElementById('gcalEmail').textContent = '(Google account)';
+  }
 
   await loadCalendars();
+  await loadDossiers();
   await loadEvents();
 }
 
 // ── Google Calendar API calls ──
-async function gcalFetch(endpoint, params = {}) {
-  // TODO: call Google Calendar API
-  // const url = new URL(`https://www.googleapis.com/calendar/v3/${endpoint}`);
-  // Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  // const resp = await fetch(url, { headers: { Authorization: `Bearer ${googleAccessToken}` } });
-  // if (!resp.ok) throw new Error(`Google API error: ${resp.status}`);
-  // return resp.json();
-  throw new Error('Google API not yet configured');
+async function gcalFetch(path, params = {}, method = 'GET', body = null) {
+  const url = new URL(`https://www.googleapis.com/calendar/v3/${path}`);
+  if (method === 'GET') {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  }
+  const options = {
+    method,
+    headers: {
+      Authorization: `Bearer ${googleAccessToken}`,
+      'Content-Type': 'application/json',
+    },
+  };
+  if (body) options.body = JSON.stringify(body);
+  const resp = await fetch(url, options);
+  if (!resp.ok) throw new Error(`Google API fout: ${resp.status}`);
+  if (resp.status === 204) return {};
+  return resp.json();
 }
 
 async function loadCalendars() {
   try {
-    // TODO: const data = await gcalFetch('users/me/calendarList');
-    // allCalendars = data.items.map(c => ({ ...c, selected: true }));
-    // renderCalendarList();
-
-    // Demo placeholder:
-    allCalendars = [
-      { id: 'primary', summary: 'Mijn agenda', backgroundColor: '#4285F4', selected: true },
-      { id: 'work',    summary: 'Werk',         backgroundColor: '#0F9D58', selected: true },
-    ];
+    const data = await gcalFetch('users/me/calendarList');
+    allCalendars = (data.items || []).map(c => ({
+      id: c.id,
+      summary: c.summary,
+      backgroundColor: c.backgroundColor || '#4285F4',
+      selected: true,
+    }));
     renderCalendarList();
   } catch (e) {
     showToast('Kon agenda\'s niet laden: ' + e.message);
@@ -719,27 +733,40 @@ async function loadEvents() {
     const timeMax = addDays(currentWeekStart, 7).toISOString();
     const selectedCals = allCalendars.filter(c => c.selected);
 
-    // TODO: fetch events for each selected calendar
-    // const results = await Promise.all(selectedCals.map(cal =>
-    //   gcalFetch(`calendars/${encodeURIComponent(cal.id)}/events`, {
-    //     timeMin, timeMax,
-    //     singleEvents: 'true',
-    //     orderBy: 'startTime',
-    //     maxResults: '250',
-    //   }).then(data => data.items.map(e => ({ ...e, calendarId: cal.id, calendarColor: cal.backgroundColor })))
-    // ));
-    // const events = results.flat().sort((a, b) => new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date));
+    const results = await Promise.all(selectedCals.map(cal =>
+      gcalFetch(`calendars/${encodeURIComponent(cal.id)}/events`, {
+        timeMin, timeMax,
+        singleEvents: 'true',
+        orderBy: 'startTime',
+        maxResults: '250',
+      }).then(data => (data.items || []).map(e => ({
+        ...e,
+        calendarId: cal.id,
+        calendarColor: cal.backgroundColor,
+      })))
+    ));
 
-    // Demo placeholder events:
-    const events = [
-      { id: 'evt1', summary: 'Jan & Sandra - gesprek', start: { dateTime: new Date().toISOString() }, end: { dateTime: addDays(new Date(), 0).toISOString() }, calendarId: 'primary', calendarColor: '#4285F4' },
-      { id: 'evt2', summary: 'Intake Peter en Mirjam', start: { dateTime: addDays(new Date(), 1).toISOString() }, end: { dateTime: addDays(new Date(), 1).toISOString() }, calendarId: 'work', calendarColor: '#0F9D58' },
-    ];
+    const events = results.flat().sort((a, b) =>
+      new Date(a.start.dateTime || a.start.date) - new Date(b.start.dateTime || b.start.date)
+    );
+
+    // Load linked events from calendar_sync to mark them
+    const { data: syncData } = await db.from('calendar_sync').select('dossier_id, google_event_id');
+    const syncMap = {};
+    (syncData || []).forEach(s => { syncMap[s.google_event_id] = s.dossier_id; });
+
+    events.forEach(ev => {
+      if (syncMap[ev.id]) {
+        ev._dossierId = syncMap[ev.id];
+        const dossier = allDossiers.find(d => d.id === syncMap[ev.id]);
+        ev._dossierName = dossier ? dossier.klant : 'Dossier';
+      }
+    });
 
     renderEvents(events);
   } catch (e) {
     setAgendaState('empty');
-    showToast('Kon agenda-items niet laden');
+    showToast('Kon agenda-items niet laden: ' + e.message);
   }
 }
 
@@ -756,18 +783,66 @@ async function syncAfspraakToGoogle(dossierId, newDate, currentEventId = null) {
   // }
 }
 
-// ── Sync: pull changes from Google into Supabase ──
+// ── Sync: pull date changes from Google into Supabase ──
 async function syncFromGoogle() {
   if (!isGoogleConnected()) { showToast('Verbind eerst Google Agenda'); return; }
   setSyncStatus('syncing');
 
   try {
-    // TODO: for each linked event in calendar_sync table:
-    // 1. fetch the event from Google Calendar
-    // 2. compare start date with datum_afspraak in dossiers
-    // 3. if different, prompt user or auto-update Supabase
-    await loadEvents();
+    const { data: syncData } = await db.from('calendar_sync').select('dossier_id, google_event_id, calendar_id');
+    if (!syncData || !syncData.length) {
+      setSyncStatus('done');
+      await loadEvents();
+      return;
+    }
+
+    const changes = [];
+    for (const sync of syncData) {
+      try {
+        const event = await gcalFetch(`calendars/${encodeURIComponent(sync.calendar_id)}/events/${sync.google_event_id}`);
+        const eventDate = event.start?.dateTime || event.start?.date;
+        if (!eventDate) continue;
+
+        const { data: dossier } = await db.from('dossiers').select('id, klant, datum_afspraak').eq('id', sync.dossier_id).single();
+        if (!dossier) continue;
+
+        const googleDay = new Date(eventDate).toISOString().split('T')[0];
+        const supabaseDay = dossier.datum_afspraak ? new Date(dossier.datum_afspraak).toISOString().split('T')[0] : null;
+
+        if (googleDay !== supabaseDay) {
+          changes.push({ sync, dossier, eventDate, googleDay });
+        }
+      } catch(e) {
+        console.warn('Kon event niet ophalen:', sync.google_event_id, e.message);
+      }
+    }
+
+    if (changes.length === 0) {
+      setSyncStatus('done');
+      showToast('Alles al bijgewerkt');
+      await loadEvents();
+      return;
+    }
+
+    // Show confirmation for each changed date
+    for (const { sync, dossier, eventDate, googleDay } of changes) {
+      const oldDay = dossier.datum_afspraak ? new Date(dossier.datum_afspraak).toLocaleDateString('nl-NL') : '(geen)';
+      const newDay = new Date(eventDate).toLocaleDateString('nl-NL');
+      const ok = confirm(
+        `Datum gewijzigd in Google Agenda:\n\n` +
+        `Dossier: ${dossier.klant}\n` +
+        `Oud: ${oldDay}\n` +
+        `Nieuw: ${newDay}\n\n` +
+        `Datum bijwerken in Statusoverzicht?`
+      );
+      if (ok) {
+        await db.from('dossiers').update({ datum_afspraak: new Date(eventDate).toISOString() }).eq('id', dossier.id);
+        await db.from('calendar_sync').update({ last_synced: new Date().toISOString() }).eq('google_event_id', sync.google_event_id);
+      }
+    }
+
     setSyncStatus('done');
+    await loadEvents();
   } catch (e) {
     setSyncStatus('error');
     showToast('Synchronisatie mislukt: ' + e.message);
@@ -779,29 +854,64 @@ async function runNameMatching() {
   if (!isGoogleConnected()) { showToast('Verbind eerst Google Agenda'); return; }
   if (!allDossiers.length) await loadDossiers();
 
-  // TODO: fetch upcoming events (next 60 days)
-  // For each event, extract words from title
-  // For each dossier, extract first names from klant field (e.g. "Jan de Vries / Petra Smit")
-  // Score matches: count how many first names appear in the event title
-  // If score > 0, add to matchQueue
+  showToast('Namen zoeken…');
 
-  // Demo: simulate one match suggestion
-  matchQueue = [
-    {
-      event: { id: 'evt1', summary: 'Jan & Sandra - gesprek', calendarId: 'primary' },
-      dossier: { id: 'demo-id', klant: 'Jan de Vries / Sandra Smit' },
-      score: 2,
-      suggestedTitle: 'Jan de Vries / Sandra Smit – gesprek',
+  try {
+    // Fetch upcoming 60 days from all selected calendars
+    const timeMin = new Date().toISOString();
+    const timeMax = addDays(new Date(), 60).toISOString();
+    const selectedCals = allCalendars.filter(c => c.selected);
+
+    const results = await Promise.all(selectedCals.map(cal =>
+      gcalFetch(`calendars/${encodeURIComponent(cal.id)}/events`, {
+        timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250',
+      }).then(data => (data.items || []).map(e => ({ ...e, calendarId: cal.id })))
+    ));
+    const events = results.flat();
+
+    // Skip already-linked events
+    const { data: syncData } = await db.from('calendar_sync').select('google_event_id');
+    const linkedIds = new Set((syncData || []).map(s => s.google_event_id));
+
+    matchQueue = [];
+    const seenEvents = new Set();
+
+    events.forEach(ev => {
+      if (!ev.summary || linkedIds.has(ev.id) || seenEvents.has(ev.id)) return;
+
+      let bestScore = 0;
+      let bestDossier = null;
+
+      allDossiers.forEach(dossier => {
+        if (!dossier.klant) return;
+        const names = extractFirstNames(dossier.klant);
+        const score = scoreMatch(ev.summary, names);
+        if (score > bestScore) { bestScore = score; bestDossier = dossier; }
+      });
+
+      if (bestScore > 0 && bestDossier) {
+        seenEvents.add(ev.id);
+        matchQueue.push({
+          event: ev,
+          dossier: bestDossier,
+          score: bestScore,
+          suggestedTitle: bestDossier.klant,
+        });
+      }
+    });
+
+    matchQueue.sort((a, b) => b.score - a.score);
+
+    if (matchQueue.length === 0) {
+      showToast('Geen nieuwe koppelingen gevonden');
+      return;
     }
-  ];
 
-  if (matchQueue.length === 0) {
-    showToast('Geen nieuwe koppelingen gevonden');
-    return;
+    showToast(`${matchQueue.length} mogelijke koppeling(en) gevonden`);
+    showNextMatch();
+  } catch(e) {
+    showToast('Naam matching mislukt: ' + e.message);
   }
-
-  showToast(`${matchQueue.length} mogelijke koppeling(en) gevonden`);
-  showNextMatch();
 }
 
 function extractFirstNames(klant) {
@@ -834,23 +944,37 @@ function showNextMatch() {
 async function confirmMatch() {
   if (!currentMatch) return;
   const newTitle = document.getElementById('matchNewTitle').value.trim();
+  if (!newTitle) { showToast('Vul een naam in'); return; }
+
+  const willRename = newTitle !== currentMatch.event.summary;
+  const confirmMsg = willRename
+    ? `In Google Agenda wordt de titel gewijzigd van:\n"${currentMatch.event.summary}"\nnaar:\n"${newTitle}"\n\nDoorgaan?`
+    : `Event koppelen aan dossier "${currentMatch.dossier.klant}"?\n(Titel blijft ongewijzigd)`;
+
+  if (!confirm(confirmMsg)) return;
 
   try {
-    // TODO: PATCH Google Calendar event with new title
-    // await gcalFetch(`calendars/${currentMatch.event.calendarId}/events/${currentMatch.event.id}`, { summary: newTitle }, 'PATCH');
+    // PATCH Google Calendar event title
+    if (willRename) {
+      await gcalFetch(
+        `calendars/${encodeURIComponent(currentMatch.event.calendarId)}/events/${currentMatch.event.id}`,
+        {}, 'PATCH',
+        { summary: newTitle }
+      );
+    }
 
     // Store link in Supabase calendar_sync table
-    // await db.from('calendar_sync').upsert({
-    //   dossier_id: currentMatch.dossier.id,
-    //   google_event_id: currentMatch.event.id,
-    //   calendar_id: currentMatch.event.calendarId,
-    //   synced_at: new Date().toISOString(),
-    // });
+    await db.from('calendar_sync').upsert({
+      dossier_id: currentMatch.dossier.id,
+      google_event_id: currentMatch.event.id,
+      calendar_id: currentMatch.event.calendarId,
+      last_synced: new Date().toISOString(),
+    }, { onConflict: 'dossier_id,google_event_id' });
 
     showToast(`Gekoppeld: ${newTitle}`);
     currentMatch = null;
     showNextMatch();
-    await loadEvents(); // refresh
+    await loadEvents();
   } catch (e) {
     showToast('Koppelen mislukt: ' + e.message);
   }
@@ -1058,9 +1182,23 @@ async function init() {
   document.getElementById('syncNowBtn').onclick   = syncFromGoogle;
   document.getElementById('matchNamesBtn').onclick = runNameMatching;
 
-  // TODO: restore saved Google token from sessionStorage if still valid
-  // const saved = sessionStorage.getItem('gcal_token');
-  // if (saved) { const t = JSON.parse(saved); googleAccessToken = t.token; googleTokenExpiry = t.expiry; if (isGoogleConnected()) onGoogleConnected(); }
+  // Restore Google token from sessionStorage if still valid
+  const saved = sessionStorage.getItem('gcal_token');
+  if (saved) {
+    try {
+      const t = JSON.parse(saved);
+      googleAccessToken = t.token;
+      googleTokenExpiry = t.expiry;
+      if (isGoogleConnected()) {
+        await onGoogleConnected();
+        return; // onGoogleConnected already calls loadDossiers + loadEvents
+      } else {
+        sessionStorage.removeItem('gcal_token');
+      }
+    } catch(e) {
+      sessionStorage.removeItem('gcal_token');
+    }
+  }
 
   await loadDossiers();
 }
