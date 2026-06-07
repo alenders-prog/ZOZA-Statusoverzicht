@@ -1285,6 +1285,43 @@ function renderEvents(events) {
   });
 }
 
+// Assign column slots to overlapping events (Google Calendar style)
+function layoutOverlappingEvents(events) {
+  // Sort by start time, then by longer duration first
+  const sorted = [...events].sort((a, b) => {
+    const as = new Date(a.start.dateTime), ae = new Date(a.end?.dateTime || a.start.dateTime);
+    const bs = new Date(b.start.dateTime), be = new Date(b.end?.dateTime || b.start.dateTime);
+    return (as - bs) || ((be - bs) - (ae - as));
+  });
+
+  // Assign each event a column index
+  const colEnds = []; // colEnds[i] = end time of last event placed in column i
+  const assigned = sorted.map(ev => {
+    const start = new Date(ev.start.dateTime);
+    const end   = new Date(ev.end?.dateTime || ev.start.dateTime);
+    let c = 0;
+    while (c < colEnds.length && colEnds[c] > start) c++;
+    colEnds[c] = end;
+    return { ev, col: c };
+  });
+
+  // For each event, find the max column among all events it overlaps with
+  assigned.forEach((item, i) => {
+    const s = new Date(item.ev.start.dateTime);
+    const e = new Date(item.ev.end?.dateTime || item.ev.start.dateTime);
+    let maxCol = item.col;
+    assigned.forEach((other, j) => {
+      if (i === j) return;
+      const os = new Date(other.ev.start.dateTime);
+      const oe = new Date(other.ev.end?.dateTime || other.ev.start.dateTime);
+      if (os < e && oe > s) maxCol = Math.max(maxCol, other.col);
+    });
+    item.totalCols = maxCol + 1;
+  });
+
+  return assigned;
+}
+
 function renderWeekGrid(events) {
   const container = document.getElementById('weekGrid');
   container.innerHTML = '';
@@ -1373,10 +1410,10 @@ function renderWeekGrid(events) {
       col.appendChild(half);
     }
 
-    // Events for this day
-    timedEvs
-      .filter(ev => new Date(ev.start.dateTime).toDateString() === d.toDateString())
-      .forEach(ev => {
+    // Events for this day — with overlap layout
+    const dayEvs = timedEvs.filter(ev => new Date(ev.start.dateTime).toDateString() === d.toDateString());
+    const layouts = layoutOverlappingEvents(dayEvs);
+    layouts.forEach(({ ev, col: evCol, totalCols }) => {
         const start = new Date(ev.start.dateTime);
         const end   = new Date(ev.end?.dateTime || ev.start.dateTime);
         const startMin = (start.getHours() - GRID_START) * 60 + start.getMinutes();
@@ -1384,14 +1421,21 @@ function renderWeekGrid(events) {
         const top    = Math.max(0, startMin);
         const height = Math.max(18, endMin - startMin);
 
+        const pct   = 100 / totalCols;
+        const left  = evCol * pct;
+        const width = pct;
+
         const block = document.createElement('div');
         block.className = 'week-event';
         block.style.top    = top + 'px';
         block.style.height = height + 'px';
+        block.style.left   = `calc(${left}% + 2px)`;
+        block.style.width  = `calc(${width}% - 4px)`;
+        block.style.right  = 'auto';
         block.style.background = ev.calendarColor || '#4285F4';
         block.title = `${ev.summary || '(geen titel)'}\n${formatTime(ev.start.dateTime)} – ${formatTime(ev.end?.dateTime)}`;
         block.innerHTML = `
-          <div class="ev-time">${formatTime(ev.start.dateTime)}</div>
+          <div class="ev-time">${formatTime(ev.start.dateTime)} – ${formatTime(ev.end?.dateTime)}</div>
           <div class="ev-title">${ev.summary || '(geen titel)'}</div>
         `;
         col.appendChild(block);
