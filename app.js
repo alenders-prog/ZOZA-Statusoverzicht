@@ -113,6 +113,9 @@ const MAX_FIELDS = 5; // pad all cards to this many field rows for uniform heigh
 
 let rows = [], alarmSettings = {}, currentFilter = 'all';
 let dragRowId = null;
+let lastEditorMap = {};      // dossier_id → user_email
+let lastChangedAtMap = {};   // dossier_id → ISO timestamp of last change
+let currentEditorFilter = null;
 
 // ── VALUE HELPERS ──
 function hasValue(v) { return !!v && v !== 'n.v.t.'; }
@@ -448,6 +451,11 @@ function sortColRows(colRows, colId) {
       const tb = b[firstDateKey] && b[firstDateKey] !== 'n.v.t.' ? new Date(b[firstDateKey]).getTime() : Infinity;
       return ta - tb;
     }
+    if (sort === 'gewijzigd') {
+      const ta = lastChangedAtMap[a.id] ? new Date(lastChangedAtMap[a.id]).getTime() : 0;
+      const tb = lastChangedAtMap[b.id] ? new Date(lastChangedAtMap[b.id]).getTime() : 0;
+      return tb - ta; // most recently changed first
+    }
     if (a.flagged !== b.flagged) return (b.flagged ? 1 : 0) - (a.flagged ? 1 : 0);
     const ac = countAlarms(a), bc = countAlarms(b);
     if (ac !== bc) return bc - ac;
@@ -521,6 +529,9 @@ function renderBoard() {
     colEl.appendChild(cardsWrap);
     board.appendChild(colEl);
   });
+  // Re-apply active filters so sort changes don't lose filter state
+  const q = document.getElementById('searchInput')?.value || '';
+  filterCards(q, true); // skipScroll — don't reset scroll position on re-render
   requestAnimationFrame(() => {
     syncKanbanScroll();
     equalizeCardHeights();
@@ -556,6 +567,8 @@ function renderCard(row, col) {
   card.dataset.cardId = row.id;
   card.dataset.klant = (row.klant || '').toLowerCase();
   card.dataset.hasAlarm = alarmCount > 0 ? '1' : '0';
+  card.dataset.lastEditor   = lastEditorMap[row.id]    || '';
+  card.dataset.lastChangedAt = lastChangedAtMap[row.id] || '';
   card.draggable = true;
 
   card.addEventListener('dragstart', e => {
@@ -787,10 +800,71 @@ function setSort(val) {
 function setFilter(type, btn) {
   if (currentFilter === type) { currentFilter = 'all'; btn.classList.remove('active'); }
   else { currentFilter = type; document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+  // Keep editor filter intact — reflect combined state
+  updateEditorSelectStyle();
   filterCards(document.getElementById('searchInput').value);
 }
 
-function filterCards(query) {
+function setEditorFilter(email) {
+  currentEditorFilter = email || null;
+  updateEditorSelectStyle();
+  filterCards(document.getElementById('searchInput').value);
+}
+
+function updateEditorSelectStyle() {
+  const sel = document.getElementById('editorFilterSelect');
+  if (!sel) return;
+  sel.classList.toggle('filter-tag-active', !!currentEditorFilter);
+}
+
+async function loadLastEditors() {
+  const { data } = await db
+    .from('changelog')
+    .select('dossier_id, user_email, created_at')
+    .not('user_email', 'is', null)
+    .neq('user_email', '')
+    .order('created_at', { ascending: false })
+    .limit(2000);
+
+  lastEditorMap    = {};
+  lastChangedAtMap = {};
+  const seen = new Set();
+  (data || []).forEach(row => {
+    if (!seen.has(row.dossier_id) && row.dossier_id && row.user_email) {
+      lastEditorMap[row.dossier_id]    = row.user_email;
+      lastChangedAtMap[row.dossier_id] = row.created_at;
+      seen.add(row.dossier_id);
+    }
+  });
+
+  // Populate dropdown with unique editors
+  const allEditors = [...new Set(Object.values(lastEditorMap))].sort();
+  const sel = document.getElementById('editorFilterSelect');
+  if (sel) {
+    const current = sel.value; // preserve selection
+    sel.innerHTML = '<option value="">Laast gewijzigd: allen</option>';
+    allEditors.forEach(email => {
+      const opt = document.createElement('option');
+      opt.value = email;
+      opt.textContent = email.split('@')[0];
+      sel.appendChild(opt);
+    });
+    if (current) sel.value = current;
+  }
+
+  // Update data attributes on already-rendered cards
+  document.querySelectorAll('.card[data-card-id]').forEach(card => {
+    const id = card.dataset.cardId;
+    card.dataset.lastEditor    = lastEditorMap[id]    || '';
+    card.dataset.lastChangedAt = lastChangedAtMap[id] || '';
+  });
+
+  // Re-apply current sort/filter in case 'gewijzigd' is active
+  if (globalSort === 'gewijzigd') renderBoard();
+  if (currentEditorFilter) filterCards(document.getElementById('searchInput')?.value || '');
+}
+
+function filterCards(query, skipScroll) {
   sessionStorage.setItem('kanbanSearch', query || '');
   const q = (query || '').trim().toLowerCase();
   COLUMNS.forEach(col => {
@@ -802,7 +876,8 @@ function filterCards(query) {
     cards.forEach(card => {
       const matchSearch = !q || (card.dataset.klant || '').includes(q);
       const matchFilter = currentFilter !== 'alarm' || card.dataset.hasAlarm === '1';
-      const match = matchSearch && matchFilter;
+      const matchEditor = !currentEditorFilter || card.dataset.lastEditor === currentEditorFilter;
+      const match = matchSearch && matchFilter && matchEditor;
       card.style.display = match ? '' : 'none';
       if (match) visible++;
     });
@@ -827,7 +902,7 @@ function filterCards(query) {
     }
   });
 
-  if (q) scrollToSearchResults(); else scrollBoardTo(0);
+  if (!skipScroll) { if (q) scrollToSearchResults(); else scrollBoardTo(0); }
 }
 
 function scrollToSearchResults() {
@@ -968,6 +1043,7 @@ async function enterApp(user) {
     }
     const loadTimeout = new Promise(resolve => setTimeout(resolve, 8000));
     await Promise.race([loadRows(), loadTimeout]);
+    loadLastEditors(); // enrich cards with last-editor data (fire and forget)
     subscribeToChanges();
   } finally {
     document.getElementById('loadingOverlay').style.display = 'none';

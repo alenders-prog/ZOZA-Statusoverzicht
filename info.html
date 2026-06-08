@@ -480,6 +480,13 @@ function formatOpmTs(iso) {
   return d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function formatOpmMeta(iso, email) {
+  const date = formatOpmTs(iso);
+  if (date === '—') return '—';
+  const name = email ? email.split('@')[0] + ' · ' : '';
+  return name + date;
+}
+
 const TOEV_COLS = ['aangevraagd','bevestigd','vergoeding_aangevraagd','vergoeding_ontvangen'];
 
 function propagateToevoegingNvt() {
@@ -883,6 +890,26 @@ function renderForm() {
         opmTs.style.cssText = 'font-size:0.68rem;font-family:"Nunito",sans-serif;font-weight:700;color:var(--grey);letter-spacing:0.06em;text-transform:uppercase;line-height:1;padding-bottom:2px;';
         const tsVal = statusData.opmerkingen_gewijzigd;
         opmTs.textContent = tsVal ? formatOpmTs(tsVal) : '—';
+        // Load last editor + previous value from changelog
+        const oudeWaardeEl = document.createElement('div');
+        oudeWaardeEl.style.cssText = 'display:none;margin-top:8px;';
+        db.from('changelog')
+          .select('user_email, old_value')
+          .eq('dossier_id', dossierId)
+          .eq('field_label', 'Opmerkingen')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then(({ data: clRow }) => {
+            const editor = clRow?.user_email || window._clUser || null;
+            if (tsVal) opmTs.textContent = formatOpmMeta(tsVal, editor);
+            if (clRow?.old_value) {
+              oudeWaardeEl.style.display = 'block';
+              oudeWaardeEl.innerHTML =
+                `<div style="font-size:0.65rem;font-weight:700;color:var(--grey);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Oude waarde</div>` +
+                `<div style="font-size:0.78rem;font-weight:600;color:var(--grey);background:var(--bg);border:1px solid var(--grey-rule);border-radius:6px;padding:7px 10px;white-space:pre-wrap;line-height:1.5;">${clRow.old_value.replace(/</g,'&lt;')}</div>`;
+            }
+          });
         opmTitle.appendChild(opmTitleLabel);
         opmTitle.appendChild(opmTs);
         const opmArea = document.createElement('textarea');
@@ -892,7 +919,7 @@ function renderForm() {
         opmArea.addEventListener('focus', () => { _opmOldVal = statusData.opmerkingen || ''; });
         opmArea.oninput = () => {
           const ts = new Date().toISOString();
-          opmTs.textContent = formatOpmTs(ts);
+          opmTs.textContent = formatOpmMeta(ts, window._clUser);
           saveStatusField('opmerkingen', opmArea.value || null);
           saveStatusField('opmerkingen_gewijzigd', ts);
         };
@@ -903,9 +930,26 @@ function renderForm() {
             _opmOldVal = newVal;
           }
         });
+
+        // Alle wijzigingen row
+        const wijzRow = document.createElement('div');
+        wijzRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;';
+        const wijzLabel = document.createElement('span');
+        wijzLabel.style.cssText = 'font-size:0.72rem;font-weight:600;color:var(--grey);';
+        wijzLabel.textContent = 'Alle wijzigingen bekijken';
+        const wijzBtn = document.createElement('button');
+        wijzBtn.className = 'btn btn-ghost';
+        wijzBtn.style.cssText = 'font-size:0.72rem;padding:4px 12px;flex-shrink:0;';
+        wijzBtn.textContent = 'Wijzigingen';
+        wijzBtn.onclick = () => window.location.href = 'changelog.html?q=' + encodeURIComponent(statusData.klant || '');
+        wijzRow.appendChild(wijzLabel);
+        wijzRow.appendChild(wijzBtn);
+
         const opmBlock = document.createElement('div');
         opmBlock.appendChild(opmTitle);
         opmBlock.appendChild(opmArea);
+        opmBlock.appendChild(oudeWaardeEl);
+        opmBlock.appendChild(wijzRow);
         leftGroup.appendChild(opmBlock);
 
         grid.appendChild(leftGroup);

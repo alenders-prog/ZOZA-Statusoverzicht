@@ -90,10 +90,13 @@
       <button id="searchClear" class="search-clear" style="display:none" onclick="document.getElementById('searchInput').value='';sessionStorage.removeItem('sharedSearch');filterCards('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
     <button class="filter-tag" onclick="setFilter('alarm', this)">Actie vereist</button>
+    <select id="editorFilterSelect" class="kanban-sort-select toolbar-sort" aria-label="Filter op laatste gebruiker" onchange="setEditorFilter(this.value)">
+      <option value="">Laast gewijzigd: allen</option>
+    </select>
     <select class="kanban-sort-select toolbar-sort" aria-label="Sorteervolgorde" onchange="setSort(this.value)">
       <option value="alarm">⚡ Alarm</option>
       <option value="naam">A→Z Naam</option>
-      <option value="datum">Datum</option>
+      <option value="gewijzigd">Gewijzigd</option>
     </select>
     <button class="btn btn-ghost" onclick="addRow()">+ Nieuwe klant</button>
     <button class="btn btn-ghost toolbar-sep" onclick="window.location.href='handleiding.html'">Handleiding</button>

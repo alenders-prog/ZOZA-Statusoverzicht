@@ -434,6 +434,7 @@ header h1 {
 }
 .filter-tag:hover { border-color: var(--orange); color: var(--orange); }
 .filter-tag.active { background: var(--orange); color: var(--white); border-color: var(--orange); }
+.toolbar-sort.filter-tag-active { background: var(--orange); color: var(--white); border-color: var(--orange); }
 
 .toolbar-sort {
   font-family: 'Nunito', sans-serif;
