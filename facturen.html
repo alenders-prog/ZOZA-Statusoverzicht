@@ -122,6 +122,7 @@
       <option value="verlopen">Verlopen</option>
     </select>
     <button class="btn btn-ghost toolbar-sep" onclick="exportCSV()">↓ Export CSV</button>
+    <button class="btn btn-ghost" onclick="window.location.href='rvr.html'">RvR tabel</button>
   </div>
 
   <div style="margin:32px 0;padding:0 28px;">
@@ -326,7 +327,13 @@ async function loadRows() {
     .from('facturen')
     .select('*')
     .order('factuurdatum', { ascending: false });
-  if (error) { showToast('Fout bij laden: ' + error.message); return; }
+  if (error) {
+    document.getElementById('factScroll').style.display = 'none';
+    const em = document.getElementById('emptyMsg');
+    em.style.display = 'block';
+    em.textContent = 'Tabel "facturen" bestaat nog niet in Supabase. Maak de tabel aan om facturen te kunnen invoeren.';
+    return;
+  }
   rows = data || [];
   filterRows('');
 }
