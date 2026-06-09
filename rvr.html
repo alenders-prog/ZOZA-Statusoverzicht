@@ -12,7 +12,9 @@
 .header-klant { display: flex; flex-direction: column; justify-content: center; }
 .header-klant h1 { line-height: 1.1; }
 
-.rvr-wrap { margin: 24px 0 32px; padding: 0 28px; }
+.tables-row { display: flex; align-items: flex-start; gap: 32px; flex-wrap: wrap; margin: 24px 0 32px; padding: 0 28px; }
+.rvr-wrap { flex: 1; min-width: 0; }
+.eb-wrap  { flex-shrink: 0; }
 .rvr-title {
   font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
   text-transform: uppercase; letter-spacing: 0.08em;
@@ -44,41 +46,44 @@
 }
 .rate-save-btn:hover { background: var(--orange-dark); }
 
-/* Table */
-.rvr-wrap { max-width: 1080px; }
-#rvrTable {
+/* Table — shared styles for both .rvr-tbl tables */
+#rvrTable { width: 100%; }
+.rvr-tbl {
   border-collapse: separate; border-spacing: 0;
-  width: 100%;
   table-layout: fixed;
   font-family: 'Nunito', sans-serif;
 }
-#rvrTable .th-group {
+.rvr-tbl .th-group {
   background: var(--orange); color: white;
   font-size: 0.71rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
   padding: 7px 10px; text-align: center;
   border-bottom: 1px solid var(--orange-dark);
-  border-right: 1px solid rgba(255,255,255,0.22);
+  border-right: 2px solid rgba(255,255,255,0.60);
 }
-#rvrTable .th-col {
+.rvr-tbl .th-col {
   background: var(--orange-soft); color: var(--orange-dark);
   font-size: 0.69rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
   padding: 7px 10px; text-align: center;
-  border-bottom: 2px solid var(--orange); white-space: nowrap;
+  border-bottom: 2px solid var(--orange); border-right: 2px solid rgba(255,255,255,0.60);
+  white-space: nowrap;
 }
-#rvrTable .th-col.th-left { text-align: left; }
-#rvrTable .tr-section td {
+.rvr-tbl .th-col:last-child { border-right: none; }
+.rvr-tbl .th-col.th-left { text-align: left; }
+.rvr-tbl .tr-section td {
   background: #3d2e22; color: white;
   font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em;
-  padding: 6px 12px; text-align: left;
+  padding: 6px 12px; text-align: left; border-right: none;
 }
-#rvrTable tbody td {
+.rvr-tbl tbody td {
   font-size: 0.80rem; font-weight: 600; color: var(--ink);
   padding: 7px 10px; border-bottom: 1px solid var(--grey-rule);
+  border-right: 1px solid #e8e8e8;
   vertical-align: middle; text-align: center;
 }
-#rvrTable tbody td.td-label { padding-left: 20px; white-space: nowrap; text-align: left; overflow: hidden; text-overflow: ellipsis; }
-#rvrTable tbody tr:not(.tr-section):nth-child(even) td { background: #FAFAFA; }
-#rvrTable tbody tr:not(.tr-section):hover td { background: var(--orange-soft); }
+.rvr-tbl tbody td:last-child { border-right: none; }
+.rvr-tbl tbody td.td-label { padding-left: 20px; white-space: nowrap; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.rvr-tbl tbody tr:not(.tr-section):nth-child(even) td { background: #FAFAFA; }
+.rvr-tbl tbody tr:not(.tr-section):hover td { background: var(--orange-soft); }
 
 .rvr-cell {
   border: none; outline: none; background: transparent;
@@ -140,6 +145,7 @@
     <button class="btn btn-ghost toolbar-sep" onclick="exportCSV()">↓ Export CSV</button>
   </div>
 
+  <div class="tables-row">
   <div class="rvr-wrap">
     <div class="rvr-title" id="tableTitle">RvR Tarieven</div>
 
@@ -154,7 +160,7 @@
     </div>
 
     <div style="overflow-x:auto;">
-      <table id="rvrTable">
+      <table id="rvrTable" class="rvr-tbl">
         <colgroup>
           <col style="width:252px"><!-- Type klant — fits "GP zonder kinderen / notarieel" -->
           <col style="width:62px"> <!-- (Kind) — fits header text -->
@@ -165,8 +171,8 @@
           <col style="width:44px"> <!-- Tot -->
           <col style="width:80px"> <!-- Per punt -->
           <col style="width:66px"> <!-- Adm -->
-          <col style="width:110px"><!-- Bedrag excl BTW -->
-          <col>                    <!-- Bedrag incl BTW (remainder) -->
+          <col style="width:120px"><!-- Bedrag excl BTW — fits header text -->
+          <col style="width:155px"><!-- Bedrag incl BTW (21%) — fits header text -->
         </colgroup>
         <thead>
           <tr>
@@ -194,7 +200,54 @@
       </table>
     </div>
   </div>
-</div>
+
+  <div class="eb-wrap">
+    <div class="rvr-title">Eigen bijdragen</div>
+    <div id="ebTableWrap" style="overflow-x:auto;">
+      <table id="ebTable" class="rvr-tbl">
+        <colgroup>
+          <col style="width:72px"> <!-- Soort -->
+          <col style="width:120px"><!-- Bedrag excl BTW -->
+          <col style="width:120px"><!-- Bedrag incl BTW -->
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="th-group" style="text-align:left;">Soort</th>
+            <th class="th-group" colspan="2" style="border-right:none;">Hoogte</th>
+          </tr>
+          <tr>
+            <th class="th-col"></th>
+            <th class="th-col">Bedrag excl BTW</th>
+            <th class="th-col" style="border-right:none;">Bedrag incl BTW</th>
+          </tr>
+        </thead>
+        <tbody id="ebBody"></tbody>
+      </table>
+    </div>
+
+    <div class="rvr-title" style="margin-top:20px;">Griffiekosten</div>
+    <div id="gkTableWrap" style="overflow-x:auto; margin-top:10px;">
+      <table id="gkTable" class="rvr-tbl">
+        <colgroup>
+          <col style="width:120px"><!-- Soort -->
+          <col style="width:120px"><!-- Bedrag (excl = incl, 0% BTW) -->
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="th-group" style="text-align:left;">Soort</th>
+            <th class="th-group" style="border-right:none;">Bedrag</th>
+          </tr>
+          <tr>
+            <th class="th-col"></th>
+            <th class="th-col" style="border-right:none;">Bedrag (0% BTW)</th>
+          </tr>
+        </thead>
+        <tbody id="gkBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  </div><!-- /.tables-row -->
 
 <div id="toast"></div>
 
@@ -202,6 +255,123 @@
 'use strict';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ─── Eigen bijdragen ──────────────────────────────────────────────────────────
+var EB_ROWS = [
+  { soort: 'Hoog', bedrag: 0 },  // bedrag = incl BTW
+  { soort: 'Laag', bedrag: 0 },
+];
+
+function renderEbTable() {
+  var tbody = document.getElementById('ebBody');
+  tbody.innerHTML = '';
+  for (var i = 0; i < EB_ROWS.length; i++) {
+    var row = EB_ROWS[i];
+    var tr = document.createElement('tr');
+
+    // Soort label
+    var tdS = document.createElement('td');
+    tdS.className = 'td-label';
+    tdS.textContent = row.soort;
+    tr.appendChild(tdS);
+
+    // Bedrag excl BTW (computed = incl / 1.21)
+    var tdExcl = document.createElement('td');
+    tdExcl.dataset.role = 'eb-excl';
+    tdExcl.textContent = fmtEur(row.bedrag / 1.21);
+    tr.appendChild(tdExcl);
+
+    // Bedrag incl BTW (editable)
+    var tdIncl = document.createElement('td');
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'rvr-cell';
+    inp.value = fmtN(row.bedrag, 2);
+    (function(row, inp, tr) {
+      inp.addEventListener('change', function() {
+        var v = parseFloat(inp.value.replace(',', '.'));
+        if (isNaN(v)) { inp.value = fmtN(row.bedrag, 2); return; }
+        row.bedrag = v;
+        inp.value = fmtN(v, 2);
+        var tdExcl = tr.querySelector('[data-role="eb-excl"]');
+        if (tdExcl) tdExcl.textContent = fmtEur(v / 1.21);
+        saveEbRow(row);
+      });
+    })(row, inp, tr);
+    tdIncl.appendChild(inp);
+    tr.appendChild(tdIncl);
+
+    tbody.appendChild(tr);
+  }
+}
+
+function alignEbTable() {
+  var rb   = document.querySelector('.rate-bar');
+  var wrap = document.getElementById('ebTableWrap');
+  if (!rb || !wrap) return;
+  var rbStyle = window.getComputedStyle(rb);
+  var h = rb.offsetHeight + parseFloat(rbStyle.marginBottom || 0);
+  wrap.style.marginTop = h + 'px';
+}
+
+async function saveEbRow(row) {
+  var sel = document.getElementById('periodSel');
+  if (!sel.value) return;
+  var parts = sel.value.split('|');
+  if (parts.length < 2) return;
+  var van = parts[0], t = parts[1];
+  var res = await db.from('eigen_bijdragen')
+    .upsert({ geldig_van: van, geldig_tot: t, soort: row.soort, bedrag_incl_btw: row.bedrag },
+             { onConflict: 'geldig_van,geldig_tot,soort' });
+  if (res.error) showToast('Opslaan mislukt');
+  else showToast('Opgeslagen');
+}
+
+// ─── Griffiekosten ────────────────────────────────────────────────────────────
+var GK_ROW = { soort: 'Griffiekosten', bedrag: 0 };  // 0% BTW: excl = incl
+
+function renderGkTable() {
+  var tbody = document.getElementById('gkBody');
+  tbody.innerHTML = '';
+  var row = GK_ROW;
+  var tr = document.createElement('tr');
+
+  var tdS = document.createElement('td');
+  tdS.className = 'td-label';
+  tdS.textContent = row.soort;
+  tr.appendChild(tdS);
+
+  // Single editable bedrag (0% BTW: excl = incl = bedrag)
+  var tdB = document.createElement('td');
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'rvr-cell';
+  inp.value = fmtN(row.bedrag, 2);
+  inp.addEventListener('change', function() {
+    var v = parseFloat(inp.value.replace(',', '.'));
+    if (isNaN(v)) { inp.value = fmtN(row.bedrag, 2); return; }
+    row.bedrag = v;
+    inp.value = fmtN(v, 2);
+    saveGkRow();
+  });
+  tdB.appendChild(inp);
+  tr.appendChild(tdB);
+
+  tbody.appendChild(tr);
+}
+
+async function saveGkRow() {
+  var sel = document.getElementById('periodSel');
+  if (!sel.value) return;
+  var parts = sel.value.split('|');
+  if (parts.length < 2) return;
+  var van = parts[0], t = parts[1];
+  var res = await db.from('griffiekosten')
+    .upsert({ geldig_van: van, geldig_tot: t, bedrag: GK_ROW.bedrag },
+             { onConflict: 'geldig_van,geldig_tot' });
+  if (res.error) showToast('Opslaan mislukt');
+  else showToast('Opgeslagen');
+}
 
 // ─── Static template ──────────────────────────────────────────────────────────
 const TPL = [
@@ -267,8 +437,12 @@ function tot(row) {
   return toNum(row.toev) + toNum(row.afh) + toNum(row.kp);
 }
 
+function rowAdm(row) {
+  return row.sub_type === 'dubbele toevoeging' ? curAdm * 2 : curAdm;
+}
+
 function bedrag(row) {
-  return tot(row) * curPerPunt + curAdm;
+  return tot(row) * curPerPunt + rowAdm(row);
 }
 
 function isoToMY(iso) {
@@ -350,14 +524,14 @@ function renderTable() {
       var tdPP = document.createElement('td');
       tdPP.className = 'td-rate';
       tdPP.dataset.role = 'pp';
-      tdPP.textContent = fmtN(curPerPunt, 2);
+      tdPP.textContent = fmtEur(curPerPunt);
       tr.appendChild(tdPP);
 
       // Col 9: Adm (display)
       var tdAdm = document.createElement('td');
       tdAdm.className = 'td-rate';
       tdAdm.dataset.role = 'adm';
-      tdAdm.textContent = fmtN(curAdm, 2);
+      tdAdm.textContent = fmtEur(rowAdm(row));
       tr.appendChild(tdAdm);
 
       // Col 10: Bedrag excl BTW (computed)
@@ -427,11 +601,12 @@ function onRateInput() {
   var trs = document.querySelectorAll('#rvrBody tr[data-key]');
   for (var i = 0; i < trs.length; i++) {
     var tr   = trs[i];
-    var key  = tr.dataset.key;
+    var keyParts = tr.dataset.key.split('|');
     // find row data from DOM inputs
     var inputs = tr.querySelectorAll('.rvr-cell');
     if (inputs.length < 5) continue;
     var r = {
+      sub_type: keyParts[1],
       toev: toNum(inputs[2].value),
       afh:  toNum(inputs[3].value),
       kp:   toNum(inputs[4].value),
@@ -440,9 +615,9 @@ function onRateInput() {
     var admEl = tr.querySelector('[data-role="adm"]');
     var bedEl = tr.querySelector('[data-role="bedrag"]');
     var btwEl = tr.querySelector('[data-role="bedrag-btw"]');
-    if (ppEl)  ppEl.textContent  = fmtN(curPerPunt, 2);
-    if (admEl) admEl.textContent = fmtN(curAdm, 2);
-    var b = tot(r) * curPerPunt + curAdm;
+    if (ppEl)  ppEl.textContent  = fmtEur(curPerPunt);
+    if (admEl) admEl.textContent = fmtEur(rowAdm(r));
+    var b = tot(r) * curPerPunt + rowAdm(r);
     if (bedEl) bedEl.textContent = fmtEur(b);
     if (btwEl) btwEl.textContent = fmtEur(b * 1.21);
   }
@@ -474,7 +649,7 @@ async function loadPeriods() {
   try {
     var res = await db.from('rvr_tarieven')
       .select('geldig_van, geldig_tot')
-      .order('geldig_van', { ascending: false });
+      .order('geldig_tot', { ascending: false });
 
     if (res.error) throw new Error(res.error.message);
 
@@ -548,7 +723,41 @@ async function loadPeriod(key) {
     dbRows = [];
   }
 
+  // Reset eigen bijdragen to 0, then load from DB
+  EB_ROWS[0].bedrag = 0;
+  EB_ROWS[1].bedrag = 0;
+  try {
+    var ebRes = await db.from('eigen_bijdragen').select('*')
+      .eq('geldig_van', van).eq('geldig_tot', t);
+    if (!ebRes.error && ebRes.data) {
+      for (var ei = 0; ei < ebRes.data.length; ei++) {
+        for (var ej = 0; ej < EB_ROWS.length; ej++) {
+          if (ebRes.data[ei].soort === EB_ROWS[ej].soort) {
+            EB_ROWS[ej].bedrag = toNum(ebRes.data[ei].bedrag_incl_btw);
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('loadEb error:', e.message);
+  }
+
+  // Load griffiekosten
+  GK_ROW.bedrag = 0;
+  try {
+    var gkRes = await db.from('griffiekosten').select('bedrag')
+      .eq('geldig_van', van).eq('geldig_tot', t).maybeSingle();
+    if (!gkRes.error && gkRes.data) {
+      GK_ROW.bedrag = toNum(gkRes.data.bedrag);
+    }
+  } catch(e) {
+    console.warn('loadGk error:', e.message);
+  }
+
   renderTable();
+  renderEbTable();
+  renderGkTable();
+  alignEbTable();
 }
 
 async function addPeriod() {
@@ -589,11 +798,24 @@ async function addPeriod() {
   var res = await db.from('rvr_tarieven').insert(toInsert);
   if (res.error) { showToast('Aanmaken mislukt: ' + res.error.message); return; }
 
-  periods.unshift({ van: vanISO, tot: totISO });
+  await db.from('eigen_bijdragen').insert([
+    { geldig_van: vanISO, geldig_tot: totISO, soort: 'Hoog', bedrag_incl_btw: 0 },
+    { geldig_van: vanISO, geldig_tot: totISO, soort: 'Laag', bedrag_incl_btw: 0 },
+  ]);
+  await db.from('griffiekosten').insert([
+    { geldig_van: vanISO, geldig_tot: totISO, bedrag: 0 },
+  ]);
+
+  periods.push({ van: vanISO, tot: totISO });
+  periods.sort(function(a, b) { return b.tot.localeCompare(a.tot); });
   var sel = document.getElementById('periodSel');
-  var o = document.createElement('option');
-  o.value = key; o.textContent = periodLabel(vanISO, totISO);
-  sel.insertBefore(o, sel.firstChild);
+  sel.innerHTML = '';
+  periods.forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.van + '|' + p.tot;
+    o.textContent = periodLabel(p.van, p.tot);
+    sel.appendChild(o);
+  });
   await loadPeriod(key);
   showToast('Periode aangemaakt');
 }
@@ -647,12 +869,19 @@ async function init() {
     document.getElementById('userEmail').textContent = session.user.email;
     document.getElementById('appScreen').style.display = 'block';
     await loadPeriods();
+    renderEbTable();
+    renderGkTable();
+    alignEbTable();
+    window.addEventListener('resize', alignEbTable);
   } catch(e) {
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
     document.getElementById('tableTitle').textContent = 'RvR Tarieven';
     dbRows = [];
     renderTable();
+    renderEbTable();
+    renderGkTable();
+    alignEbTable();
   }
 }
 

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>MO Bedragen</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js" integrity="sha384-o+Hkm/usHFhCEWo1Ae1cLsOLiQQNrD2UfI424QDAaiZR7URnC8v35ey7s2sbGZHB" crossorigin="anonymous"></script>
+<style>
+.header-klant { display: flex; flex-direction: column; justify-content: center; }
+.header-klant h1 { line-height: 1.1; }
+
+.tables-row { margin: 24px 0 32px; padding: 0 28px; }
+.mo-title {
+  font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding-bottom: 8px; border-bottom: 2px solid var(--orange);
+  margin-bottom: 0; color: var(--orange-dark);
+}
+
+/* Table — reuse .rvr-tbl shared styles */
+.rvr-tbl {
+  border-collapse: separate; border-spacing: 0;
+  table-layout: fixed;
+  font-family: 'Nunito', sans-serif;
+}
+.rvr-tbl .th-group {
+  background: var(--orange); color: white;
+  font-size: 0.71rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 7px 10px; text-align: center;
+  border-bottom: 1px solid var(--orange-dark);
+  border-right: 2px solid rgba(255,255,255,0.60);
+}
+.rvr-tbl .th-col {
+  background: var(--orange-soft); color: var(--orange-dark);
+  font-size: 0.69rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 7px 10px; text-align: center;
+  border-bottom: 2px solid var(--orange); border-right: 2px solid rgba(255,255,255,0.60);
+  white-space: nowrap;
+}
+.rvr-tbl .th-col:last-child { border-right: none; }
+.rvr-tbl .th-col.th-left { text-align: left; }
+.rvr-tbl tbody td {
+  font-size: 0.80rem; font-weight: 600; color: var(--ink);
+  padding: 7px 10px; border-bottom: 1px solid var(--grey-rule);
+  border-right: 1px solid #e8e8e8;
+  vertical-align: middle; text-align: center;
+}
+.rvr-tbl tbody td:last-child { border-right: none; }
+.rvr-tbl tbody td.td-label { padding-left: 20px; white-space: nowrap; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.rvr-tbl tbody tr:nth-child(even) td { background: #FAFAFA; }
+.rvr-tbl tbody tr:hover td { background: var(--orange-soft); }
+.rvr-tbl tbody tr.tr-separator td { border-top: 2px solid var(--orange); }
+
+.rvr-cell {
+  border: none; outline: none; background: transparent;
+  font-family: 'Nunito', sans-serif; font-size: 0.80rem; font-weight: 600; color: var(--ink);
+  text-align: center; width: 100%; max-width: 100%; padding: 0;
+  display: block; box-sizing: border-box;
+}
+.rvr-cell:focus { background: white; border-bottom: 2px solid var(--orange); }
+
+.td-bedrag     { font-weight: 800; font-size: 0.84rem; }
+.td-bedrag-btw { font-weight: 700; font-size: 0.82rem; color: var(--grey); }
+
+.period-sel {
+  font-family: 'Nunito', sans-serif; font-size: 0.85rem; font-weight: 700;
+  padding: 6px 10px; border: 1.5px solid var(--orange); border-radius: 6px;
+  background: white; color: var(--ink); cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
+
+<div id="appScreen" style="display:none">
+  <header>
+    <div class="header-inner">
+      <button class="btn btn-ghost" onclick="location.href='facturen.html'">← Facturen</button>
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+      <div class="header-klant">
+        <h1>MO Bedragen</h1>
+        <span class="header-subtitle">Mediatorovereenkomst</span>
+      </div>
+      <div class="header-nav">
+        <button class="btn btn-ghost" onclick="location.href='index.html'">Kaartweergave</button>
+        <button class="btn btn-ghost" onclick="location.href='statusoverzicht.html'">Lijstweergave</button>
+        <button class="btn btn-ghost" onclick="location.href='toevoegingen.html'">Toevoegingen</button>
+        <button class="btn btn-ghost" onclick="location.href='hypotheeklead.html'">Hypotheek leads</button>
+        <button class="btn btn-ghost" onclick="location.href='agenda.html'">Agenda</button>
+        <button class="btn btn-ghost nav-active" onclick="location.href='facturen.html'">Facturen</button>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <label style="font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:700;color:var(--ink);margin-right:6px;">Periode:</label>
+    <select id="periodSel" class="period-sel" onchange="onPeriodChange(this.value)"></select>
+    <button class="btn btn-ghost" style="margin-left:8px;" onclick="addPeriod()">+ Nieuwe periode</button>
+    <button class="btn btn-ghost toolbar-sep" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+
+  <div class="tables-row">
+    <div class="mo-title" id="tableTitle">MO Bedragen</div>
+
+    <div style="overflow-x:auto; margin-top:10px; max-width:640px;">
+      <table id="moTable" class="rvr-tbl">
+        <colgroup>
+          <col style="width:220px"><!-- Omschrijving -->
+          <col style="width:150px"><!-- Bedrag excl BTW -->
+          <col style="width:80px"> <!-- BTW % -->
+          <col style="width:150px"><!-- Bedrag incl BTW -->
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="th-group" style="text-align:left;">Omschrijving</th>
+            <th class="th-group" colspan="3" style="border-right:none;">Bedrag</th>
+          </tr>
+          <tr>
+            <th class="th-col th-left"></th>
+            <th class="th-col">Bedrag excl BTW</th>
+            <th class="th-col">BTW %</th>
+            <th class="th-col" style="border-right:none;">Bedrag incl BTW</th>
+          </tr>
+        </thead>
+        <tbody id="moBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ─── Static template ──────────────────────────────────────────────────────────
+const TPL = [
+  { omschrijving: 'Gehuwd/GP zonder kinderen', bedrag: 0, btw: 21 },
+  { omschrijving: 'Gehuwd/GP met kinderen',    bedrag: 0, btw: 21 },
+  { omschrijving: 'SW zonder kinderen',        bedrag: 0, btw: 21 },
+  { omschrijving: 'SW met kinderen',           bedrag: 0, btw: 21 },
+  { omschrijving: 'Ondernemer ZZP',            bedrag: 0, btw: 21 },
+  { omschrijving: 'Ondernemer BV',             bedrag: 0, btw: 21 },
+  { omschrijving: 'Ouderschapsplan los',       bedrag: 0, btw: 21 },
+  { omschrijving: 'Scheiden of blijven',       bedrag: 0, btw: 21 },
+  { omschrijving: 'Relatie mediation',         bedrag: 0, btw: 21 },
+  { omschrijving: 'Uurtarief',                 bedrag: 0, btw: 21 },
+  { omschrijving: 'Advocaatkosten',            bedrag: 0, btw: 21, separator: true },
+];
+
+let moRows  = [];    // live data merged from TPL + DB
+let periods = [];
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+async function signOut() {
+  await db.auth.signOut();
+  location.href = 'index.html';
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function toNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  return parseFloat(String(v).replace(',', '.')) || 0;
+}
+
+function fmtN(v, dec) {
+  var num = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+  if (isNaN(num)) num = 0;
+  return num.toLocaleString('nl-NL', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function fmtEur(v) {
+  return '€ ' + fmtN(v, 2);
+}
+
+function isoToMY(iso) {
+  if (!iso) return '';
+  var p = iso.split('-');
+  return p[1] + '/' + p[0];
+}
+
+function periodLabel(van, tot) {
+  return isoToMY(van) + ' – ' + isoToMY(tot);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderTable() {
+  var tbody = document.getElementById('moBody');
+  tbody.innerHTML = '';
+
+  moRows.forEach(function(row) {
+    var tr = document.createElement('tr');
+    if (row.separator) tr.classList.add('tr-separator');
+    tr.dataset.key = row.omschrijving;
+
+    // Col 1: label
+    var tdL = document.createElement('td');
+    tdL.className = 'td-label';
+    tdL.textContent = row.omschrijving;
+    tr.appendChild(tdL);
+
+    // Col 2: Bedrag excl BTW (computed = incl / (1 + btw/100))
+    var tdExcl = document.createElement('td');
+    tdExcl.className = 'td-bedrag-btw';
+    tdExcl.dataset.role = 'excl';
+    tdExcl.textContent = row.bedrag ? fmtEur(row.bedrag / (1 + row.btw / 100)) : '—';
+    tr.appendChild(tdExcl);
+
+    // Col 3: BTW % (editable)
+    var tdBtw = document.createElement('td');
+    var inpBtw = document.createElement('input');
+    inpBtw.type = 'text';
+    inpBtw.className = 'rvr-cell';
+    inpBtw.value = fmtN(row.btw, 0);
+    (function(row, inpBtw, tr) {
+      inpBtw.addEventListener('change', function() {
+        var v = parseFloat(inpBtw.value.replace(',', '.'));
+        if (isNaN(v) || v < 0) { inpBtw.value = fmtN(row.btw, 0); return; }
+        row.btw = v;
+        inpBtw.value = fmtN(v, 0);
+        refreshExclBtw(tr, row);
+        saveRow(row);
+      });
+    })(row, inpBtw, tr);
+    tdBtw.appendChild(inpBtw);
+    tr.appendChild(tdBtw);
+
+    // Col 4: Bedrag incl BTW (editable — primary value)
+    var tdIncl = document.createElement('td');
+    tdIncl.className = 'td-bedrag';
+    var inpIncl = document.createElement('input');
+    inpIncl.type = 'text';
+    inpIncl.className = 'rvr-cell';
+    inpIncl.value = row.bedrag ? fmtN(row.bedrag, 2) : '';
+    (function(row, inpIncl, tr) {
+      inpIncl.addEventListener('change', function() {
+        var v = parseFloat(inpIncl.value.replace(',', '.'));
+        if (isNaN(v)) { inpIncl.value = row.bedrag ? fmtN(row.bedrag, 2) : ''; return; }
+        row.bedrag = v;
+        inpIncl.value = fmtN(v, 2);
+        refreshExclBtw(tr, row);
+        saveRow(row);
+      });
+    })(row, inpIncl, tr);
+    tdIncl.appendChild(inpIncl);
+    tr.appendChild(tdIncl);
+
+    tbody.appendChild(tr);
+  });
+}
+
+function refreshExclBtw(tr, row) {
+  var tdExcl = tr.querySelector('[data-role="excl"]');
+  if (tdExcl) tdExcl.textContent = row.bedrag ? fmtEur(row.bedrag / (1 + row.btw / 100)) : '—';
+}
+
+// ─── Save ─────────────────────────────────────────────────────────────────────
+async function saveRow(row) {
+  var sel = document.getElementById('periodSel');
+  if (!sel.value) return;
+  var parts = sel.value.split('|');
+  if (parts.length < 2) return;
+  var van = parts[0], tot = parts[1];
+  var res = await db.from('mo_bedragen')
+    .upsert(
+      { geldig_van: van, geldig_tot: tot, omschrijving: row.omschrijving,
+        bedrag_incl_btw: row.bedrag, btw_perc: row.btw },
+      { onConflict: 'geldig_van,geldig_tot,omschrijving' }
+    );
+  if (res.error) showToast('Opslaan mislukt: ' + res.error.message);
+  else showToast('Opgeslagen');
+}
+
+// ─── Periods ──────────────────────────────────────────────────────────────────
+async function loadPeriods() {
+  try {
+    var res = await db.from('mo_bedragen')
+      .select('geldig_van, geldig_tot')
+      .order('geldig_tot', { ascending: false });
+    if (res.error) throw new Error(res.error.message);
+
+    var seen = {};
+    periods = [];
+    (res.data || []).forEach(function(r) {
+      var k = r.geldig_van + '|' + r.geldig_tot;
+      if (!seen[k]) { seen[k] = true; periods.push({ van: r.geldig_van, tot: r.geldig_tot }); }
+    });
+
+    var sel = document.getElementById('periodSel');
+    sel.innerHTML = '';
+
+    if (periods.length === 0) {
+      var opt = document.createElement('option');
+      opt.value = ''; opt.textContent = '— geen periodes —';
+      sel.appendChild(opt);
+      document.getElementById('tableTitle').textContent = 'MO Bedragen';
+    } else {
+      periods.forEach(function(p) {
+        var o = document.createElement('option');
+        o.value = p.van + '|' + p.tot;
+        o.textContent = periodLabel(p.van, p.tot);
+        sel.appendChild(o);
+      });
+      await loadPeriod(periods[0].van + '|' + periods[0].tot);
+      return;
+    }
+  } catch(e) {
+    console.warn('loadPeriods error:', e.message);
+    document.getElementById('tableTitle').textContent = 'MO Bedragen (standaard)';
+  }
+
+  // No DB data — render template defaults
+  moRows = TPL.map(function(t) { return { omschrijving: t.omschrijving, bedrag: t.bedrag, btw: t.btw, separator: !!t.separator }; });
+  renderTable();
+}
+
+async function onPeriodChange(val) {
+  if (!val) return;
+  await loadPeriod(val);
+}
+
+async function loadPeriod(key) {
+  var parts = key.split('|');
+  var van = parts[0], tot = parts[1];
+
+  document.getElementById('periodSel').value = key;
+  document.getElementById('tableTitle').textContent = 'MO Bedragen ' + periodLabel(van, tot);
+
+  // Merge DB data over template defaults
+  moRows = TPL.map(function(t) { return { omschrijving: t.omschrijving, bedrag: t.bedrag, btw: t.btw, separator: !!t.separator }; });
+
+  try {
+    var res = await db.from('mo_bedragen').select('*')
+      .eq('geldig_van', van).eq('geldig_tot', tot);
+    if (res.error) throw new Error(res.error.message);
+    (res.data || []).forEach(function(dbRow) {
+      var match = moRows.find(function(r) { return r.omschrijving === dbRow.omschrijving; });
+      if (match) {
+        match.bedrag = toNum(dbRow.bedrag_incl_btw);
+        match.btw    = toNum(dbRow.btw_perc);
+      }
+    });
+  } catch(e) {
+    console.warn('loadPeriod error:', e.message);
+  }
+
+  renderTable();
+}
+
+async function addPeriod() {
+  var vanStr = prompt('Geldig van (MM/JJJJ):', '01/' + new Date().getFullYear());
+  if (!vanStr) return;
+  var totStr = prompt('Geldig tot (MM/JJJJ):', '12/' + new Date().getFullYear());
+  if (!totStr) return;
+
+  var vm = vanStr.trim().match(/^(\d{1,2})\/(\d{4})$/);
+  var tm = totStr.trim().match(/^(\d{1,2})\/(\d{4})$/);
+  if (!vm || !tm) { alert('Gebruik MM/JJJJ notatie.'); return; }
+
+  var vanISO = vm[2] + '-' + ('0' + vm[1]).slice(-2) + '-01';
+  var totDate = new Date(parseInt(tm[2]), parseInt(tm[1]), 0);
+  var totISO  = tm[2] + '-' + ('0' + tm[1]).slice(-2) + '-' + ('0' + totDate.getDate()).slice(-2);
+  var key = vanISO + '|' + totISO;
+
+  for (var i = 0; i < periods.length; i++) {
+    if (periods[i].van + '|' + periods[i].tot === key) { showToast('Periode bestaat al'); return; }
+  }
+
+  // Insert all template rows for new period
+  var toInsert = TPL.map(function(t) {
+    return { geldig_van: vanISO, geldig_tot: totISO, omschrijving: t.omschrijving, bedrag_incl_btw: t.bedrag, btw_perc: t.btw };
+  });
+  var res = await db.from('mo_bedragen').insert(toInsert);
+  if (res.error) { showToast('Aanmaken mislukt: ' + res.error.message); return; }
+
+  periods.push({ van: vanISO, tot: totISO });
+  periods.sort(function(a, b) { return b.tot.localeCompare(a.tot); });
+  var sel = document.getElementById('periodSel');
+  sel.innerHTML = '';
+  periods.forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.van + '|' + p.tot;
+    o.textContent = periodLabel(p.van, p.tot);
+    sel.appendChild(o);
+  });
+  await loadPeriod(key);
+  showToast('Periode aangemaakt');
+}
+
+// ─── Export CSV ───────────────────────────────────────────────────────────────
+function exportCSV() {
+  var sel = document.getElementById('periodSel');
+  var lbl = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : 'mo';
+  var lines = ['Omschrijving;Bedrag incl BTW;BTW %;Bedrag excl BTW'];
+  moRows.forEach(function(row) {
+    var excl = row.bedrag ? row.bedrag / (1 + row.btw / 100) : 0;
+    lines.push([row.omschrijving, fmtN(row.bedrag, 2), fmtN(row.btw, 0), fmtN(excl, 2)].join(';'));
+  });
+  var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'mo_bedragen_' + lbl.replace(/[\s\/–]/g, '_') + '.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 2500);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    var res = await db.auth.getSession();
+    var session = res.data.session;
+    document.getElementById('loadingOverlay').style.display = 'none';
+    if (!session) { location.href = 'index.html'; return; }
+    document.getElementById('userEmail').textContent = session.user.email;
+    document.getElementById('appScreen').style.display = 'block';
+    await loadPeriods();
+  } catch(e) {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    document.getElementById('tableTitle').textContent = 'MO Bedragen';
+    moRows = TPL.map(function(t) { return { omschrijving: t.omschrijving, bedrag: t.bedrag, btw: t.btw, separator: !!t.separator }; });
+    renderTable();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

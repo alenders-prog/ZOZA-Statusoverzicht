@@ -165,9 +165,12 @@ main { padding: 28px 32px; display: none; }
   display: inline-flex; align-items: center; justify-content: center;
 }
 .toggle:hover { border-color: var(--grey); color: var(--grey); }
-.toggle.ben-on { background: var(--orange-mid); border-color: var(--orange); color: var(--orange-dark); }
-.toggle.on  { background: var(--green-soft); border-color: var(--green); color: var(--green); }
-.toggle.nvt { color: #ccc; font-style: italic; font-size: 0.60rem; border-style: dashed; }
+.toggle.ben-on  { background: var(--orange-mid); border-color: var(--orange); color: var(--orange-dark); }
+.toggle.on      { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.toggle.nvt     { color: #ccc; font-style: italic; font-size: 0.60rem; border-style: dashed; }
+.toggle.eb-hoog { background: var(--orange-mid); border-color: var(--orange); color: var(--orange-dark); min-width: 46px; }
+.toggle.eb-laag { background: var(--green-soft); border-color: var(--green); color: var(--green); min-width: 46px; }
+.toggle.eb-off  { min-width: 46px; }
 .rechtbank-table .toggle.on { background: var(--phase5-soft); border-color: var(--phase5); color: var(--phase5); }
 
 /* Override style.css inline-editing rule that hides all td inputs/selects */
@@ -507,14 +510,16 @@ const STATUS_FIELD_LABELS = {};
 STATUS_SECTIONS.forEach(sec => sec.fields.forEach(f => { STATUS_FIELD_LABELS[f.key] = f.label; }));
 Object.assign(STATUS_FIELD_LABELS, {
   opmerkingen:    'Opmerkingen',
-  toevoeging_a:   'Toevoeging persoon A',
-  toevoeging_b:   'Toevoeging persoon B',
-  bevestigd_a:    'Bevestigd toevoeging A',
-  bevestigd_b:    'Bevestigd toevoeging B',
-  aangevraagd_a:  'Aangevraagd toevoeging A',
-  aangevraagd_b:  'Aangevraagd toevoeging B',
-  hypotheek_a:    'Hypotheek lead persoon A',
-  hypotheek_b:    'Hypotheek lead persoon B',
+  toevoeging_a:      'Toevoeging persoon A',
+  toevoeging_b:      'Toevoeging persoon B',
+  bevestigd_a:       'Bevestigd toevoeging A',
+  bevestigd_b:       'Bevestigd toevoeging B',
+  aangevraagd_a:     'Aangevraagd toevoeging A',
+  aangevraagd_b:     'Aangevraagd toevoeging B',
+  eigen_bijdrage_a:  'Eigen bijdrage persoon A',
+  eigen_bijdrage_b:  'Eigen bijdrage persoon B',
+  hypotheek_a:       'Hypotheek lead persoon A',
+  hypotheek_b:       'Hypotheek lead persoon B',
 });
 
 function saveStatusField(key, value) {
@@ -1186,7 +1191,7 @@ function renderForm() {
     } else if (f.key === 'bedrijf') {
       control = document.createElement('select');
       control.style.cssText = selectStyle;
-      ['', 'Ja', 'Nee'].forEach(opt => {
+      ['', 'Nee', 'ZZP', 'BV'].forEach(opt => {
         const o = document.createElement('option');
         o.value = opt; o.textContent = opt || '—';
         if ((klant['bedrijf'] || '') === opt) o.selected = true;
@@ -1281,33 +1286,75 @@ function renderForm() {
 
   const toevTable = document.createElement('table');
   toevTable.className = 'field-table';
-  toevTable.innerHTML = '<thead><tr><th>Naam</th><th style="text-align:center;width:90px;">Toevoeging</th></tr></thead>';
+  toevTable.innerHTML = '<thead><tr>'
+    + '<th style="text-align:left;">Naam</th>'
+    + '<th style="text-align:center;width:76px;">Toevoeging</th>'
+    + '<th style="text-align:center;width:110px;">Eigen bijdrage</th>'
+    + '</tr></thead>';
   const toevTbody = document.createElement('tbody');
 
   [
-    { nameKey: 'naam_a', statusKey: 'toevoeging_a', fallback: 'Persoon A' },
-    { nameKey: 'naam_b', statusKey: 'toevoeging_b', fallback: 'Persoon B' },
-  ].forEach(({ nameKey, statusKey, fallback }) => {
+    { nameKey: 'naam_a', statusKey: 'toevoeging_a', ebKey: 'eigen_bijdrage_a', fallback: 'Persoon A' },
+    { nameKey: 'naam_b', statusKey: 'toevoeging_b', ebKey: 'eigen_bijdrage_b', fallback: 'Persoon B' },
+  ].forEach(({ nameKey, statusKey, ebKey, fallback }) => {
     const tr = document.createElement('tr');
-    const nameTd = document.createElement('td');
-    nameTd.textContent = klant[nameKey] || fallback;
+
+    // ── Toevoeging (left) ──
     const btnTd = document.createElement('td');
     btnTd.style.cssText = 'text-align:center;padding:4px;';
     const btn = document.createElement('button');
+
+    // ── Eigen bijdrage (right) ──
+    const ebTd = document.createElement('td');
+    ebTd.style.cssText = 'text-align:center;padding:4px;';
+    const ebBtn = document.createElement('button');
+
+    const updateEbBtn = () => {
+      const toevOn = statusData[statusKey] === 1;
+      const ebVal  = statusData[ebKey] || null;
+      if (!toevOn) {
+        ebBtn.className = 'toggle nvt'; ebBtn.textContent = '—'; ebBtn.disabled = true;
+      } else {
+        ebBtn.disabled = false;
+        if (ebVal === 'hoog')      { ebBtn.className = 'toggle eb-hoog'; ebBtn.textContent = 'Hoog'; }
+        else if (ebVal === 'laag') { ebBtn.className = 'toggle eb-laag'; ebBtn.textContent = 'Laag'; }
+        else                       { ebBtn.className = 'toggle eb-off';  ebBtn.textContent = '—'; }
+      }
+    };
+
     const updateBtn = () => {
       const v = statusData[statusKey] === 1 ? 1 : 0;
       btn.className = 'toggle' + (v === 1 ? ' ben-on' : '');
       btn.textContent = v === 1 ? '1' : '0';
+      updateEbBtn();
     };
     updateBtn();
+
     btn.onclick = () => {
-      saveStatusField(statusKey, statusData[statusKey] === 1 ? 0 : 1);
+      const newVal = statusData[statusKey] === 1 ? 0 : 1;
+      saveStatusField(statusKey, newVal);
+      if (newVal === 0) saveStatusField(ebKey, null);  // clear eigen bijdrage when toevoeging off
       updateBtn();
       propagateToevoegingNvt();
     };
+
+    ebBtn.onclick = () => {
+      if (statusData[statusKey] !== 1) return;
+      const next = (statusData[ebKey] === 'hoog') ? 'laag' : 'hoog';
+      saveStatusField(ebKey, next);
+      updateEbBtn();
+    };
+
+    updateEbBtn();
     btnTd.appendChild(btn);
-    tr.appendChild(nameTd);
-    tr.appendChild(btnTd);
+    ebTd.appendChild(ebBtn);
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = klant[nameKey] || fallback;
+
+    tr.appendChild(nameTd);  // Naam       — left
+    tr.appendChild(btnTd);   // Toevoeging — middle
+    tr.appendChild(ebTd);    // Eigen bijdrage — right
     toevTbody.appendChild(tr);
   });
 

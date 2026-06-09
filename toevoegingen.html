@@ -17,15 +17,31 @@
 #toevScroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); }
 #toevTable { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 
-/* Fixed date column widths */
-#toevTable thead tr.col-row th:nth-child(3),
+/* Eigen bijdrage column — wide enough for "EIGEN BIJDRAGE" header */
+#toevTable thead tr.col-row th:nth-child(3) { width: 122px; }
+
+/* Eigen bijdrage dropdown — override global "td select { display:none }" */
+#toevTable td .eb-sel { display: inline-block; min-height: unset; }
+.eb-sel {
+  font-family: 'Nunito', sans-serif; font-size: 0.80rem; font-weight: 700;
+  border: none; border-bottom: 1.5px solid transparent; background: transparent;
+  outline: none; cursor: pointer; width: 100%; text-align: center;
+  padding: 2px 4px; border-radius: 4px;
+}
+.eb-sel:hover, .eb-sel:focus { border-bottom-color: var(--orange); background: var(--orange-soft); }
+.eb-sel.val-hoog { color: var(--orange-dark); }
+.eb-sel.val-laag { color: var(--green); }
+.eb-sel.val-none { color: var(--grey); }
+
+/* Fixed date column widths (shifted +1 by new Eigen bijdrage column) */
 #toevTable thead tr.col-row th:nth-child(4),
 #toevTable thead tr.col-row th:nth-child(5),
-#toevTable thead tr.col-row th:nth-child(6) { width: 160px; }
+#toevTable thead tr.col-row th:nth-child(6),
+#toevTable thead tr.col-row th:nth-child(7) { width: 160px; }
 
-/* Vergoeding columns sized by JS */
-#toevTable thead tr.col-row th:nth-child(7),
-#toevTable thead tr.col-row th:nth-child(8) { padding-left: 4px; padding-right: 4px; }
+/* Vergoeding columns sized by JS (shifted +1) */
+#toevTable thead tr.col-row th:nth-child(8),
+#toevTable thead tr.col-row th:nth-child(9) { padding-left: 4px; padding-right: 4px; }
 
 /* Sticky at top of scroll container (not viewport) — solid background so rows don't show through */
 #toevTable thead tr.col-row th { position: sticky; top: 0; z-index: 9; background: var(--orange-soft); }
@@ -148,6 +164,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const COLUMNS = [
   { label: 'Dossier',                colKey: null,                     type: 'string', sortable: true,  thClass: 'ch-klant'                },
   { label: 'Naam',                   colKey: null,                     type: 'string', sortable: true,  thClass: ''                        },
+  { label: 'Eigen bijdrage',         colKey: null,                     type: 'string', sortable: true,  thClass: ''                        },
   { label: 'Datum aangevraagd',      colKey: 'toev_aangevraagd',       type: 'date',   sortable: true,  thClass: 'ch1',  perPerson: true   },
   { label: 'Datum ingediend',        colKey: 'aangevraagd',            type: 'date',   sortable: true,  thClass: 'ch1',  perPerson: true   },
   { label: 'Datum toegekend',        colKey: 'bevestigd',              type: 'date',   sortable: true,  thClass: 'ch1',  perPerson: true   },
@@ -326,9 +343,36 @@ function renderTable() {
     naamTd.appendChild(naamDisplay);
     tr.appendChild(naamTd);
 
-    // Date columns (indices 2–7)
-    COLUMNS.slice(2, 8).forEach((col, i) => {
-      const cellIdx      = i + 2;
+    // Eigen bijdrage (index 2) — editable dropdown
+    const ebTd = document.createElement('td');
+    ebTd.style.cssText = 'text-align:center;padding:4px 8px;';
+    const ebSel = document.createElement('select');
+    const ebCurRaw = row.raw[2] || '';
+    const updateEbSelClass = () => {
+      ebSel.className = 'eb-sel' + (ebSel.value === 'hoog' ? ' val-hoog' : ebSel.value === 'laag' ? ' val-laag' : ' val-none');
+    };
+    [['', '—'], ['hoog', 'Hoog'], ['laag', 'Laag']].forEach(([v, lbl]) => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = lbl;
+      if (v === ebCurRaw) opt.selected = true;
+      ebSel.appendChild(opt);
+    });
+    updateEbSelClass();
+    ebSel.onchange = async () => {
+      const newVal = ebSel.value || null;
+      const dbKey  = 'eigen_bijdrage' + row.suffix;
+      row.raw[2]   = newVal || '';
+      row.cells[2] = newVal ? (newVal.charAt(0).toUpperCase() + newVal.slice(1)) : '—';
+      row.rawRow[dbKey] = newVal;
+      updateEbSelClass();
+      await db.from('dossiers').update({ [dbKey]: newVal }).eq('id', row.id);
+    };
+    ebTd.appendChild(ebSel);
+    tr.appendChild(ebTd);
+
+    // Date columns (indices 3–8)
+    COLUMNS.slice(3, 9).forEach((col, i) => {
+      const cellIdx      = i + 3;
       const rawKey       = col.colKey;
       // perPerson columns use suffixed DB keys (_a or _b); shared columns use rawKey directly
       const effectiveKey = col.perPerson ? rawKey + row.suffix : rawKey;
@@ -532,7 +576,7 @@ async function init() {
     document.body.appendChild(m);
     const pt4 = 6;  // 4pt ≈ 5.3px → 6px
     const pad = 8;  // 4px left + 4px right (CSS override for these columns)
-    [[6, COLUMNS[6].label], [7, COLUMNS[7].label]].forEach(([i, label]) => {
+    [[7, COLUMNS[7].label], [8, COLUMNS[8].label]].forEach(([i, label]) => {
       m.textContent = label;
       const labelW = m.offsetWidth;
       m.style.fontSize = (0.68 * 0.7) + 'rem';  // sort arrow is 0.7em of TH
@@ -548,7 +592,7 @@ async function init() {
 
   // Fetch all dossiers with toevoeging — filtering is done client-side via the search box
   const { data } = await db.from('dossiers')
-    .select('id, klant, info_data, kanban_column, toevoeging_a, toevoeging_b, toev_aangevraagd_a, toev_aangevraagd_b, aangevraagd_a, aangevraagd_b, bevestigd_a, bevestigd_b, toev_afgewezen_a, toev_afgewezen_b, vergoeding_aangevraagd_a, vergoeding_aangevraagd_b, vergoeding_ontvangen_a, vergoeding_ontvangen_b, beeindigd, verstuurd_gemeente, opmerkingen_toevoeging')
+    .select('id, klant, info_data, kanban_column, toevoeging_a, toevoeging_b, eigen_bijdrage_a, eigen_bijdrage_b, toev_aangevraagd_a, toev_aangevraagd_b, aangevraagd_a, aangevraagd_b, bevestigd_a, bevestigd_b, toev_afgewezen_a, toev_afgewezen_b, vergoeding_aangevraagd_a, vergoeding_aangevraagd_b, vergoeding_ontvangen_a, vergoeding_ontvangen_b, beeindigd, verstuurd_gemeente, opmerkingen_toevoeging')
     .or('toevoeging_a.eq.1,toevoeging_b.eq.1')
     .order('klant');
 
@@ -567,12 +611,14 @@ async function init() {
         row['vergoeding_aangevraagd'  + suffix],
         row['vergoeding_ontvangen'    + suffix],
       ];
+      const ebRaw = row['eigen_bijdrage' + suffix] || null;
+      const ebDisplay = ebRaw ? (ebRaw.charAt(0).toUpperCase() + ebRaw.slice(1)) : '—';
       rows.push({
         id:          row.id,
         suffix:      suffix,
         opmerkingen: row.opmerkingen_toevoeging || '',
-        cells:       [dossierName, naam || '—', ...rawDates.map(fmtDate)],
-        raw:         [dossierName, naam || '—', ...rawDates],
+        cells:       [dossierName, naam || '—', ebDisplay, ...rawDates.map(fmtDate)],
+        raw:         [dossierName, naam || '—', ebRaw || '', ...rawDates],
         rawRow:      row,   // full row for alarm checks
       });
     });
