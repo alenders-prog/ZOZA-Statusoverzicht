@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Facturen</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js" integrity="sha384-o+Hkm/usHFhCEWo1Ae1cLsOLiQQNrD2UfI424QDAaiZR7URnC8v35ey7s2sbGZHB" crossorigin="anonymous"></script>
+<script src="changelog.js"></script>
+<style>
+.header-klant { display: flex; flex-direction: column; justify-content: center; }
+.header-klant h1 { line-height: 1.1; }
+
+#factScroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); }
+#factTable { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+
+/* Fixed column widths */
+#factTable thead tr.col-row th:nth-child(3),
+#factTable thead tr.col-row th:nth-child(4),
+#factTable thead tr.col-row th:nth-child(5),
+#factTable thead tr.col-row th:nth-child(6) { width: 160px; }
+
+/* Sticky header */
+#factTable thead tr.col-row th { position: sticky; top: 0; z-index: 9; background: var(--orange-soft); }
+
+/* Sticky dossier column */
+#factTable thead tr.col-row th:first-child { position: sticky; top: 0; left: 0; z-index: 12; }
+#factTable tbody td.col-klant {
+  position: sticky; left: 0; z-index: 5;
+  background: var(--white); border-right: 1px solid var(--grey-rule);
+}
+#factTable tbody tr:nth-child(even) td.col-klant { background: #FAFAFA; }
+#factTable tbody tr:hover td.col-klant { background: var(--orange-soft); }
+
+.sort-arrow { margin-left: 4px; opacity: 0.45; font-style: normal; font-size: 0.7em; }
+.sort-arrow.active { opacity: 1; }
+#factTable thead th.no-sort { cursor: default; }
+#factTable thead th.no-sort:hover { filter: none; }
+#factTable .ch-klant { min-width: 0; top: 0 !important; left: 0 !important; z-index: 12 !important; }
+
+.text-td .cell-display { justify-content: flex-start; }
+.date-td .cell-display.nvt { color: var(--grey); }
+
+.opm-td { cursor: pointer; padding: 0 !important; }
+.opm-display { min-height: 36px; padding: 8px 10px; display: flex; align-items: center; font-size: 0.78rem; font-weight: 600; color: var(--ink); white-space: nowrap; font-family: 'Nunito', sans-serif; }
+.opm-display.empty { color: transparent; }
+.opm-display.empty::after { content: '—'; color: var(--grey-rule); }
+.opm-input-field { display: none; width: 100%; min-height: 36px; border: none; outline: none; background: var(--orange-soft); font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--ink); padding: 8px 10px; cursor: text; box-sizing: border-box; }
+.opm-td.editing .opm-display { display: none; }
+.opm-td.editing .opm-input-field { display: block; }
+
+.fact-section-title {
+  font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding-bottom: 8px; border-bottom: 2px solid var(--orange);
+  margin-bottom: 0; color: var(--orange-dark);
+}
+
+#factTable thead th.ch-o { text-align: left; }
+
+/* Status badge */
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family: 'Nunito', sans-serif;
+}
+.status-badge.betaald   { background: var(--green-soft, #E8F5E9); color: var(--green, #27AE60); }
+.status-badge.open      { background: var(--orange-soft); color: var(--orange-dark); }
+.status-badge.verlopen  { background: #FDECEA; color: #C0392B; }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
+
+<div id="appScreen" style="display:none">
+  <header>
+    <div class="header-inner">
+      <button class="btn btn-ghost" onclick="history.back()">← Terug</button>
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+      <div class="header-klant">
+        <h1>Facturen</h1>
+        <span class="header-subtitle">Overzicht</span>
+      </div>
+      <div class="header-nav">
+        <button class="btn btn-ghost" onclick="window.location.href='index.html'">Kaartweergave</button>
+        <button class="btn btn-ghost" onclick="window.location.href='statusoverzicht.html'">Lijstweergave</button>
+        <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
+        <button class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html'">Hypotheek leads</button>
+        <button class="btn btn-ghost nav-active" onclick="window.location.href='facturen.html'">Facturen</button>
+        <button class="btn btn-ghost" onclick="window.location.href='agenda.html'">Agenda</button>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
+      <input type="text" id="searchInput" placeholder="Zoek op dossiernaam..."
+        oninput="filterRows(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+      <button id="searchClear" class="search-clear" style="display:none"
+        onclick="document.getElementById('searchInput').value='';filterRows('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
+    </div>
+    <select class="kanban-sort-select toolbar-sort" id="statusFilter" onchange="filterRows(document.getElementById('searchInput').value)">
+      <option value="">Status: alle</option>
+      <option value="open">Open</option>
+      <option value="betaald">Betaald</option>
+      <option value="verlopen">Verlopen</option>
+    </select>
+    <button class="btn btn-ghost toolbar-sep" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+
+  <div style="margin:32px 0;padding:0 28px;">
+    <div class="fact-section-title">Facturen</div>
+    <div id="factScroll">
+      <table id="factTable" style="width:100%;">
+        <thead><tr id="factHead" class="col-row"></tr></thead>
+        <tbody id="factBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyMsg" style="display:none;padding:24px 12px;font-family:'Nunito',sans-serif;font-size:0.83rem;font-weight:600;color:var(--grey);">Geen facturen gevonden.</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const COLUMNS = [
+  { label: 'Dossier',          key: 'klant',            type: 'string', sortable: true,  thClass: 'ch-klant' },
+  { label: 'Factuurnummer',    key: 'factuurnummer',     type: 'string', sortable: true,  thClass: ''         },
+  { label: 'Factuurdatum',     key: 'factuurdatum',      type: 'date',   sortable: true,  thClass: ''         },
+  { label: 'Vervaldatum',      key: 'vervaldatum',       type: 'date',   sortable: true,  thClass: ''         },
+  { label: 'Bedrag',           key: 'bedrag',            type: 'amount', sortable: true,  thClass: ''         },
+  { label: 'Status',           key: 'status',            type: 'status', sortable: true,  thClass: ''         },
+  { label: 'Opmerkingen',      key: 'opmerkingen',       type: 'opm',    sortable: false, thClass: 'ch-o'     },
+];
+
+let rows = [];
+let sortCol = 0, sortDir = 1;
+let thEls = [];
+let searchQuery = '';
+
+// ── Auth ──
+async function signOut() {
+  await db.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+// ── Format helpers ──
+function formatDate(v) {
+  if (!v || v === 'n.v.t.') return v || '—';
+  const d = new Date(v);
+  return isNaN(d) ? v : d.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatAmount(v) {
+  if (v == null || v === '') return '—';
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+}
+
+function isVerlopen(row) {
+  if (row.status === 'betaald') return false;
+  if (!row.vervaldatum) return false;
+  return new Date(row.vervaldatum) < new Date();
+}
+
+// ── Render table ──
+function buildHeader() {
+  const tr = document.getElementById('factHead');
+  tr.innerHTML = '';
+  thEls = [];
+  COLUMNS.forEach((col, i) => {
+    const th = document.createElement('th');
+    th.className = (col.sortable ? '' : 'no-sort ') + (col.thClass || '');
+    th.innerHTML = col.label + (col.sortable ? `<i class="sort-arrow" id="sa${i}">↕</i>` : '');
+    if (col.sortable) th.addEventListener('click', () => doSort(i));
+    tr.appendChild(th);
+    thEls.push(th);
+  });
+}
+
+function renderRows(data) {
+  const tbody = document.getElementById('factBody');
+  tbody.innerHTML = '';
+
+  if (!data.length) {
+    document.getElementById('emptyMsg').style.display = 'block';
+    document.getElementById('factScroll').style.display = 'none';
+    return;
+  }
+  document.getElementById('emptyMsg').style.display = 'none';
+  document.getElementById('factScroll').style.display = '';
+
+  data.forEach(row => {
+    const tr = document.createElement('tr');
+    const effectiveStatus = isVerlopen(row) ? 'verlopen' : (row.status || 'open');
+
+    COLUMNS.forEach(col => {
+      const td = document.createElement('td');
+
+      if (col.type === 'opm') {
+        td.className = 'opm-td';
+        const display = document.createElement('div');
+        display.className = 'opm-display' + (row[col.key] ? '' : ' empty');
+        display.textContent = row[col.key] || '';
+        const input = document.createElement('textarea');
+        input.className = 'opm-input-field';
+        input.value = row[col.key] || '';
+        input.rows = 2;
+        td.appendChild(display);
+        td.appendChild(input);
+
+        td.addEventListener('click', () => {
+          td.classList.add('editing');
+          input.focus();
+        });
+        input.addEventListener('blur', async () => {
+          td.classList.remove('editing');
+          const newVal = input.value.trim();
+          display.textContent = newVal;
+          display.className = 'opm-display' + (newVal ? '' : ' empty');
+          if (newVal !== (row[col.key] || '')) {
+            row[col.key] = newVal;
+            await db.from('facturen').update({ opmerkingen: newVal || null }).eq('id', row.id);
+          }
+        });
+
+      } else if (col.key === 'klant') {
+        td.className = 'col-klant text-td';
+        td.innerHTML = `<div class="cell-display"><span>${row.klant || '—'}</span></div>`;
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => {
+          if (row.dossier_id) window.location.href = `info.html?id=${row.dossier_id}`;
+        });
+
+      } else if (col.type === 'date') {
+        td.className = 'date-td';
+        td.innerHTML = `<div class="cell-display">${formatDate(row[col.key])}</div>`;
+
+      } else if (col.type === 'amount') {
+        td.className = 'date-td';
+        td.style.textAlign = 'right';
+        td.innerHTML = `<div class="cell-display" style="justify-content:flex-end">${formatAmount(row[col.key])}</div>`;
+
+      } else if (col.type === 'status') {
+        td.style.textAlign = 'center';
+        td.innerHTML = `<div class="cell-display" style="justify-content:center">
+          <span class="status-badge ${effectiveStatus}">${effectiveStatus}</span>
+        </div>`;
+
+      } else {
+        td.className = 'text-td';
+        td.innerHTML = `<div class="cell-display"><span>${row[col.key] || '—'}</span></div>`;
+      }
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Sort ──
+function doSort(idx) {
+  if (sortCol === idx) sortDir = -sortDir;
+  else { sortCol = idx; sortDir = 1; }
+  thEls.forEach((th, i) => {
+    const sa = th.querySelector('.sort-arrow');
+    if (sa) { sa.textContent = i === sortCol ? (sortDir === 1 ? '↑' : '↓') : '↕'; sa.classList.toggle('active', i === sortCol); }
+  });
+  filterRows(document.getElementById('searchInput').value);
+}
+
+function sortedRows(data) {
+  const col = COLUMNS[sortCol];
+  return [...data].sort((a, b) => {
+    let va = a[col.key] ?? '', vb = b[col.key] ?? '';
+    if (col.type === 'date') {
+      va = va ? new Date(va).getTime() : Infinity;
+      vb = vb ? new Date(vb).getTime() : Infinity;
+      return sortDir * (va - vb);
+    }
+    if (col.type === 'amount') {
+      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
+      return sortDir * (va - vb);
+    }
+    return sortDir * String(va).localeCompare(String(vb), 'nl');
+  });
+}
+
+// ── Filter ──
+function filterRows(q) {
+  searchQuery = (q || '').trim().toLowerCase();
+  const statusVal = document.getElementById('statusFilter').value;
+  let data = rows.filter(row => {
+    const matchSearch = !searchQuery || (row.klant || '').toLowerCase().includes(searchQuery) || (row.factuurnummer || '').toLowerCase().includes(searchQuery);
+    const effectiveStatus = isVerlopen(row) ? 'verlopen' : (row.status || 'open');
+    const matchStatus = !statusVal || effectiveStatus === statusVal;
+    return matchSearch && matchStatus;
+  });
+  renderRows(sortedRows(data));
+}
+
+// ── Load data ──
+async function loadRows() {
+  const { data, error } = await db
+    .from('facturen')
+    .select('*')
+    .order('factuurdatum', { ascending: false });
+  if (error) { showToast('Fout bij laden: ' + error.message); return; }
+  rows = data || [];
+  filterRows('');
+}
+
+// ── Export CSV ──
+function exportCSV() {
+  const headers = COLUMNS.map(c => c.label);
+  const csvRows = [headers.join(';')];
+  rows.forEach(row => {
+    const vals = COLUMNS.map(col => {
+      if (col.type === 'date') return formatDate(row[col.key]);
+      if (col.type === 'amount') return (row[col.key] ?? '').toString().replace('.', ',');
+      return (row[col.key] ?? '').toString().replace(/;/g, ',');
+    });
+    csvRows.push(vals.join(';'));
+  });
+  const blob = new Blob(['﻿' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'facturen.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Init ──
+async function init() {
+  const { data: { session } } = await db.auth.getSession();
+  document.getElementById('loadingOverlay').style.display = 'none';
+  if (!session) { window.location.href = 'index.html'; return; }
+  window._clUser = session.user.email;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('appScreen').style.display = 'block';
+  buildHeader();
+  await loadRows();
+}
+
+init();
+</script>
+</body>
+</html>
