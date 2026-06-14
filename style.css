@@ -362,6 +362,11 @@ header h1 {
   .toolbar .toolbar-sort,
   .toolbar .search-box { flex-shrink: 0; }
   .search-box { min-width: 160px; }
+
+  /* ── Non-sticky left columns on mobile ── */
+  td.col-del,
+  td.col-klant { position: static !important; z-index: auto !important; left: auto !important; }
+  .ch-klant    { position: static !important; z-index: auto !important; left: auto !important; }
 }
 .view-toggle {
   display: flex;
