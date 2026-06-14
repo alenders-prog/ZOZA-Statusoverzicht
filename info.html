@@ -1080,7 +1080,7 @@ function renderForm() {
     const klant = infoData._klant || {};
     if (!infoData._dienstverlening) infoData._dienstverlening = {};
 
-    if (typeVal === 'Scheiden of Blijven') {
+    if (typeVal === 'Scheiden of Blijven' || typeVal === 'Relatiemediation' || typeVal === 'Uurtarief') {
       // Persoonsgegevens: skip MANUAL_FIELDS; Woning/Zakelijk/Rechtbank: set all to 0
       persoonsFields.forEach(f => {
         if (MANUAL_FIELDS.has(f.key)) return;
@@ -1382,7 +1382,7 @@ function renderForm() {
   const dienstvData = infoData._dienstverlening || {};
 
   [
-    { key: 'type',      label: 'Type',         options: ['', 'Scheiding', 'Herziening OP', 'Herberekening', 'Scheiden of Blijven'] },
+    { key: 'type',      label: 'Type',         options: ['', 'Scheiding', 'Herziening OP', 'Herberekening', 'Scheiden of Blijven', 'Relatiemediation', 'Uurtarief'] },
     { key: 'rechtbank', label: 'Via rechtbank', options: ['', 'Ja', 'Nee'] },
   ].forEach(f => {
     const tr = document.createElement('tr');

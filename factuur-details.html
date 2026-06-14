@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Factuur – Details</title>
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js" integrity="sha384-o+Hkm/usHFhCEWo1Ae1cLsOLiQQNrD2UfI424QDAaiZR7URnC8v35ey7s2sbGZHB" crossorigin="anonymous"></script>
+<script src="changelog.js"></script>
+<style>
+.header-klant { display: flex; flex-direction: column; justify-content: center; }
+.header-klant h1 { line-height: 1.1; }
+.page-body { padding: 24px 28px; max-width: 860px; }
+.nw-sect-hdr {
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--orange-dark); margin: 18px 0 6px;
+  padding-bottom: 5px; border-bottom: 2px solid var(--orange);
+}
+.fact-tbl {
+  border-collapse: collapse; width: 100%;
+  font-family: 'Nunito', sans-serif; font-size: 0.80rem; font-weight: 600;
+}
+.fact-tbl thead th {
+  background: var(--orange-soft); color: var(--orange-dark);
+  font-size: 0.67rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.06em; padding: 5px 8px; text-align: right;
+  border-bottom: 2px solid var(--orange); white-space: nowrap;
+}
+.fact-tbl thead th.th-l { text-align: left; }
+.fact-tbl tbody td {
+  padding: 4px 8px; border-bottom: 1px solid var(--grey-rule);
+  color: var(--ink); vertical-align: middle; text-align: right;
+}
+.fact-tbl tbody td.td-l { text-align: left; }
+.fact-tbl tbody tr.row-unchecked td { opacity: 0.36; }
+.fact-tbl tfoot td {
+  padding: 6px 8px; font-weight: 800; font-size: 0.85rem; text-align: right;
+  border-top: 2px solid var(--orange);
+}
+.fact-inp-sm {
+  display: inline-block;
+  font-family: 'Nunito', sans-serif; font-size: 0.80rem; font-weight: 600;
+  border: none; border-bottom: 1.5px solid transparent;
+  background: transparent; outline: none; color: var(--ink);
+  text-align: right; width: 88px; padding: 1px 2px; box-sizing: border-box;
+  min-height: unset;
+}
+.fact-inp-sm:not(:disabled) { border-bottom-color: #ddd; cursor: text; }
+.fact-inp-sm:not(:disabled):focus { border-bottom-color: var(--orange); background: #fff8f0; }
+.fact-inp-sm:disabled { color: transparent; pointer-events: none; }
+.dossier-wrap { position: relative; }
+.dossier-dd {
+  display: none; position: absolute; top: 100%; left: 0; right: 0;
+  background: white; border: 1.5px solid var(--orange); border-top: none;
+  border-radius: 0 0 6px 6px; max-height: 200px; overflow-y: auto; z-index: 210;
+}
+.dossier-dd.open { display: block; }
+.dossier-opt {
+  padding: 8px 10px;
+  font-family: 'Nunito', sans-serif; font-size: 0.83rem; font-weight: 600;
+  cursor: pointer; color: var(--ink);
+}
+.dossier-opt:hover, .dossier-opt.active { background: var(--orange-soft); }
+.tab-bar { display: flex; gap: 8px; margin-bottom: 28px; }
+.tab-btn {
+  font-family: 'Nunito', sans-serif; font-size: 0.92rem; font-weight: 800;
+  padding: 8px 22px; border: 1.5px solid var(--grey-rule); border-radius: 20px;
+  cursor: pointer; background: var(--white); color: var(--grey-text);
+  letter-spacing: 0.01em; transition: all 0.15s;
+}
+.tab-btn.active { background: var(--orange); color: var(--white); border-color: var(--orange); }
+.tab-btn:hover:not(.active) { border-color: var(--orange); color: var(--orange); }
+</style>
+</head>
+<body>
+<div id="loadingOverlay"><div class="spinner"></div><p>Laden...</p></div>
+
+<div id="appScreen" style="display:none">
+  <header>
+    <div class="header-inner">
+      <button class="btn btn-ghost" onclick="window.location.href='facturen.html'">← Facturen</button>
+      <svg class="header-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="35" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="65" cy="22" r="14" fill="#F7931E"/>
+        <circle cx="50" cy="60" r="13" fill="#F7931E"/>
+        <path d="M18 48 Q18 72 50 82 Q82 72 82 48 Q82 36 65 36 Q57 36 50 46 Q43 36 35 36 Q18 36 18 48Z" fill="#cccccc"/>
+      </svg>
+      <div class="header-klant">
+        <h1 id="page-title">Factuur</h1>
+        <span class="header-subtitle" id="page-subtitle">Details</span>
+      </div>
+      <div class="header-nav">
+        <button class="btn btn-ghost" onclick="window.location.href='index.html'">Kaartweergave</button>
+        <button class="btn btn-ghost" onclick="window.location.href='statusoverzicht.html'">Lijstweergave</button>
+        <button class="btn btn-ghost" onclick="window.location.href='toevoegingen.html'">Toevoegingen</button>
+        <button class="btn btn-ghost" onclick="window.location.href='hypotheeklead.html'">Hypotheek leads</button>
+        <button class="btn btn-ghost" onclick="window.location.href='agenda.html'">Agenda</button>
+        <button class="btn btn-ghost nav-active" onclick="window.location.href='facturen.html'">Facturen</button>
+      </div>
+      <div class="header-actions">
+        <span id="userEmail"></span>
+        <button class="btn btn-ghost" onclick="signOut()">Uitloggen</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+      <button class="btn btn-ghost" onclick="window.open('rvr.html','_blank')">RvR tabel</button>
+      <button class="btn btn-ghost" onclick="window.open('mo_bedragen.html','_blank')">MO bedragen</button>
+      <select id="nw-status" class="form-inp" style="width:120px;border:1.5px solid var(--grey-rule);border-radius:4px;padding:5px 8px;">
+        <option value="open">Open</option>
+        <option value="betaald">Betaald</option>
+      </select>
+      <button class="btn-save" onclick="submitFactuur()">Opslaan</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+    <div class="tab-bar">
+      <button class="tab-btn active">Details</button>
+      <button class="tab-btn" id="btn-tab-facturen" onclick="goToFacturenTab()">Facturen</button>
+    </div>
+
+    <!-- Dossier (hidden when editing — name shown in header) -->
+    <div id="dossier-row" class="form-row" style="margin-bottom:12px;max-width:340px;">
+      <label class="form-lbl">Dossier</label>
+      <div class="dossier-wrap">
+        <input id="nw-dossier-input" class="form-inp" type="text" placeholder="Zoek dossier..." autocomplete="off"
+          oninput="filterDossierList(this.value)"
+          onblur="setTimeout(()=>document.getElementById('nw-dossier-dd').classList.remove('open'),150)"
+          onkeydown="dossierKeyNav(event)">
+        <div id="nw-dossier-dd" class="dossier-dd"></div>
+        <input type="hidden" id="nw-dossier-id">
+      </div>
+    </div>
+
+    <!-- MO period selector (always shown once a dossier is selected) -->
+    <div class="form-row" id="nw-mo-period-row" style="visibility:hidden;max-width:260px;margin-bottom:16px;">
+      <label class="form-lbl">Periode MO</label>
+      <select id="nw-mo-period" class="form-inp" onchange="onNwMoPeriodChange(this.value)"></select>
+    </div>
+
+    <!-- Detail sections (shown after dossier selection) -->
+    <div id="nw-detail" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:56px;align-items:start;">
+
+        <!-- Left: Diensten -->
+        <div>
+          <div class="nw-sect-hdr">Diensten (incl BTW)</div>
+          <div style="overflow-x:auto;">
+            <table class="fact-tbl" style="white-space:nowrap;">
+              <thead>
+                <tr>
+                  <th style="width:26px;"></th>
+                  <th class="th-l">Dienst</th>
+                  <th>Aantal</th>
+                  <th>Bedrag</th>
+                  <th>Advocaat</th>
+                  <th>Griffie</th>
+                  <th>Totaal</th>
+                </tr>
+              </thead>
+              <tbody id="nw-diensten-body"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="6" style="text-align:right;font-size:0.78rem;font-weight:700;color:var(--grey);">Totaal</td>
+                  <td id="nw-totaal-cel"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right: Toevoegingen + RvR uitkeringen -->
+        <div>
+          <div id="nw-toev-wrap" style="display:none;">
+            <div class="nw-sect-hdr">Toevoegingen</div>
+            <div style="overflow-x:auto;">
+              <table class="fact-tbl" style="table-layout:fixed;width:500px;">
+                <colgroup>
+                  <col style="width:160px;">
+                  <col style="width:130px;">
+                  <col style="width:120px;">
+                  <col style="width:90px;">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th class="th-l" style="white-space:nowrap;">Persoon</th>
+                    <th style="white-space:nowrap;">Datum toegekend</th>
+                    <th style="white-space:nowrap;">Eigen bijdrage</th>
+                    <th style="white-space:nowrap;">Bedrag</th>
+                  </tr>
+                </thead>
+                <tbody id="nw-toev-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="nw-rvr-wrap" style="display:none;margin-top:24px;">
+            <div class="nw-sect-hdr">RvR uitkeringen (incl BTW)</div>
+            <div style="overflow-x:auto;">
+              <table class="fact-tbl" style="table-layout:fixed;width:500px;">
+                <colgroup>
+                  <col style="width:160px;">
+                  <col style="width:130px;">
+                  <col style="width:120px;">
+                  <col style="width:90px;">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th class="th-l" style="white-space:nowrap;">Persoon</th>
+                    <th style="white-space:nowrap;">RvR</th>
+                    <th style="white-space:nowrap;">-Eigen bijdrage</th>
+                    <th style="white-space:nowrap;">Totaal</th>
+                  </tr>
+                </thead>
+                <tbody id="nw-rvr-body"></tbody>
+                <tfoot id="nw-rvr-foot"></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /#nw-detail -->
+
+    <input type="hidden" id="nw-factuurnr">
+    <input type="hidden" id="nw-factuurdat">
+    <input type="hidden" id="nw-vervaldat">
+    <input type="hidden" id="nw-bedrag">
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── State ──
+let allDossiers    = [];
+let ddActiveIdx    = -1;
+let nwEditId       = null;
+let nwDossierData  = null;
+let nwMoRows       = [];
+let nwToevRows     = [];
+let nwEbHoog = 0, nwEbLaag = 0;
+let nwGriffekosten = 0, nwMoGriffekosten = 0;
+let nwAdvocaatBedrag = 0, nwAdvocaatBtw = 21;
+let nwRvrTariefRows = [], nwRvrPerPunt = 0, nwRvrAdmKosten = 0;
+let nwRvrVergoeding = 0, nwCoMediation = 0;
+let nwZsFactor    = parseFloat(sessionStorage.getItem('nw_zs_factor'))    || 0.54;
+let nwZsCoFactor  = parseFloat(sessionStorage.getItem('nw_zs_co_factor')) || 0.25;
+let nwFactLines   = { a: [], b: [] };
+let nwIsOPSplit   = false;
+let nwSavedFactLines = null, nwFactLinesFresh = null, nwFactConflict = false;
+
+const MO_ORDER = [
+  'Gehuwd/GP zonder kinderen','Gehuwd/GP met kinderen',
+  'SW zonder kinderen','SW met kinderen',
+  'Ondernemer ZZP','Ondernemer BV',
+  'Ouderschapsplan los','Herberekening','Scheiden of blijven',
+  'Relatie mediation','Uurtarief',
+];
+const RECHTBANK_ROWS = new Set([
+  'Gehuwd/GP zonder kinderen','Gehuwd/GP met kinderen',
+  'SW zonder kinderen','SW met kinderen',
+  'Ouderschapsplan los','Herberekening',
+]);
+
+// ── Helpers ──
+function fmtMoney(v) {
+  return new Intl.NumberFormat('nl-NL',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
+}
+function tryParseJSON(v) { try{return JSON.parse(v)||{};}catch{return{};} }
+function formatDate(v) {
+  if(!v||v==='n.v.t.')return v||'—';
+  const d=new Date(v);return isNaN(d)?v:d.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function formatAmount(v) {
+  if(v==null||v==='')return'—';
+  const n=parseFloat(v);if(isNaN(n))return v;
+  return new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(n);
+}
+function showToast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+async function signOut(){await db.auth.signOut();window.location.href='index.html';}
+
+// ── Navigation ──
+function goToFacturenTab() {
+  if (!nwEditId) { showToast('Sla de factuur eerst op'); return; }
+  sessionStorage.setItem('nw_zs_factor',    nwZsFactor);
+  sessionStorage.setItem('nw_zs_co_factor', nwZsCoFactor);
+  window.location.href = 'factuur-facturen.html?id=' + nwEditId;
+}
+
+// ── Dossier autocomplete ──
+function filterDossierList(q) {
+  const dd = document.getElementById('nw-dossier-dd');
+  ddActiveIdx = -1; dd.innerHTML = '';
+  if (!q.trim()) { dd.classList.remove('open'); return; }
+  const matches = allDossiers.filter(d => d.klant && d.klant.toLowerCase().includes(q.toLowerCase())).slice(0,25);
+  if (!matches.length) { dd.classList.remove('open'); return; }
+  matches.forEach((d,i) => {
+    const div = document.createElement('div');
+    div.className = 'dossier-opt'; div.dataset.idx = i; div.textContent = d.klant;
+    div.onmousedown = e => { e.preventDefault(); selectDossier(d); };
+    dd.appendChild(div);
+  });
+  dd._matches = matches; dd.classList.add('open');
+}
+function selectDossier(d) {
+  document.getElementById('nw-dossier-input').value = d.klant;
+  document.getElementById('nw-dossier-id').value   = d.id;
+  document.getElementById('nw-dossier-dd').classList.remove('open');
+  ddActiveIdx = -1;
+  loadNwDossierDetail(d, null);
+}
+function dossierKeyNav(e) {
+  const dd = document.getElementById('nw-dossier-dd');
+  const opts = dd.querySelectorAll('.dossier-opt');
+  if (!opts.length) return;
+  if (e.key==='ArrowDown'){e.preventDefault();ddActiveIdx=Math.min(ddActiveIdx+1,opts.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();ddActiveIdx=Math.max(ddActiveIdx-1,0);}
+  else if(e.key==='Enter'&&ddActiveIdx>=0){e.preventDefault();selectDossier(dd._matches[ddActiveIdx]);return;}
+  else if(e.key==='Escape'){dd.classList.remove('open');return;}
+  else return;
+  opts.forEach((o,i)=>o.classList.toggle('active',i===ddActiveIdx));
+  opts[ddActiveIdx]?.scrollIntoView({block:'nearest'});
+}
+
+// ── Load dossier detail ──
+async function loadNwDossierDetail(d, savedRegels) {
+  document.getElementById('nw-detail').style.display = 'none';
+  const { data: dos } = await db.from('dossiers')
+    .select('id,klant,info_data,toevoeging_a,toevoeging_b,bevestigd_a,bevestigd_b,eigen_bijdrage_a,eigen_bijdrage_b')
+    .eq('id', d.id).single();
+  nwDossierData = dos;
+  document.getElementById('page-title').textContent = dos.klant || 'Factuur';
+
+  // MO periods
+  const { data: moP } = await db.from('mo_bedragen').select('geldig_van,geldig_tot').order('geldig_tot',{ascending:false});
+  const seen={}; const moPeriods=[];
+  (moP||[]).forEach(r=>{const k=r.geldig_van+'|'+r.geldig_tot;if(!seen[k]){seen[k]=true;moPeriods.push({van:r.geldig_van,tot:r.geldig_tot});}});
+  const sel = document.getElementById('nw-mo-period');
+  sel.innerHTML='';
+  moPeriods.forEach(p=>{const o=document.createElement('option');o.value=p.van+'|'+p.tot;o.textContent=p.van.slice(5,7)+'/'+p.van.slice(0,4)+' – '+p.tot.slice(5,7)+'/'+p.tot.slice(0,4);sel.appendChild(o);});
+  document.getElementById('nw-mo-period-row').style.visibility = moPeriods.length?'visible':'hidden';
+  if(savedRegels&&savedRegels.periode_mo){const opt=sel.querySelector(`option[value="${savedRegels.periode_mo}"]`);if(opt)sel.value=savedRegels.periode_mo;}
+
+  // RvR period matching bevestigd date
+  nwEbHoog=0;nwEbLaag=0;nwGriffekosten=0;
+  const{data:allEbRows}=await db.from('eigen_bijdragen').select('geldig_van,geldig_tot').order('geldig_tot',{ascending:false});
+  const _seenEb={};const ebPeriods=[];
+  (allEbRows||[]).forEach(r=>{const k=r.geldig_van+'|'+r.geldig_tot;if(!_seenEb[k]){_seenEb[k]=true;ebPeriods.push({van:r.geldig_van,tot:r.geldig_tot});}});
+  const _bev=nwDossierData.bevestigd_a||nwDossierData.bevestigd_b;
+  const ebPeriod=ebPeriods.length?(_bev?(ebPeriods.find(p=>p.van<=_bev&&_bev<=p.tot)||ebPeriods[0]):ebPeriods[0]):null;
+  if(ebPeriod){
+    const{data:ebD}=await db.from('eigen_bijdragen').select('soort,bedrag_incl_btw').eq('geldig_van',ebPeriod.van).eq('geldig_tot',ebPeriod.tot);
+    (ebD||[]).forEach(r=>{if(r.soort==='Hoog')nwEbHoog=parseFloat(r.bedrag_incl_btw)||0;if(r.soort==='Laag')nwEbLaag=parseFloat(r.bedrag_incl_btw)||0;});
+    const{data:gkD}=await db.from('griffiekosten').select('bedrag').eq('geldig_van',ebPeriod.van).eq('geldig_tot',ebPeriod.tot).maybeSingle();
+    if(gkD)nwGriffekosten=parseFloat(gkD.bedrag)||0;
+    const{data:rvrD}=await db.from('rvr_tarieven').select('*').eq('geldig_van',ebPeriod.van).eq('geldig_tot',ebPeriod.tot);
+    nwRvrTariefRows=rvrD||[];
+    if(nwRvrTariefRows.length&&nwRvrTariefRows[0].per_punt!=null){nwRvrPerPunt=parseFloat(nwRvrTariefRows[0].per_punt)||0;nwRvrAdmKosten=parseFloat(nwRvrTariefRows[0].adm)||0;}
+  }
+
+  const periodToLoad=(savedRegels&&savedRegels.periode_mo)||(moPeriods.length?moPeriods[0].van+'|'+moPeriods[0].tot:null);
+  if(periodToLoad)await loadNwMoBedragen(periodToLoad); else nwMoRows=[];
+
+  renderNwToevoegingen();
+  renderNwRvrUitkeringen();
+  if(savedRegels&&Array.isArray(savedRegels.diensten)){
+    applySavedDiensten(savedRegels.diensten); computeNwFactLines();
+    const baselineLines=JSON.parse(JSON.stringify(nwFactLines));
+    const savedNames=new Set((savedRegels.diensten||[]).map(d=>d.naam));
+    pickNwDiensten(); computeNwFactLines();
+    const freshLines=JSON.parse(JSON.stringify(nwFactLines));
+    const freshNames=new Set(nwMoRows.filter(r=>r.checked).map(r=>r.omschrijving));
+    applySavedDiensten(savedRegels.diensten); nwFactLines=baselineLines;
+    const dienstenChanged=savedNames.size!==freshNames.size||[...savedNames].some(n=>!freshNames.has(n));
+    if(dienstenChanged||!factLinesEqual(baselineLines,freshLines)){nwFactConflict=true;nwFactLinesFresh=freshLines;}
+  } else { pickNwDiensten(); computeNwFactLines(); }
+  renderNwDiensten();
+  renderNwConflictBanner();
+  document.getElementById('nw-detail').style.display='block';
+}
+
+async function loadNwMoBedragen(periodKey){
+  const[van,tot]=periodKey.split('|');
+  const{data}=await db.from('mo_bedragen').select('omschrijving,bedrag_incl_btw').eq('geldig_van',van).eq('geldig_tot',tot).order('id');
+  const advRow=(data||[]).find(r=>r.omschrijving==='Advocaatkosten');
+  nwAdvocaatBedrag=advRow?parseFloat(advRow.bedrag_incl_btw)||0:0;
+  nwAdvocaatBtw=advRow?parseFloat(advRow.btw_perc)||21:21;
+  const gkRow=(data||[]).find(r=>r.omschrijving==='Griffiekosten');
+  nwMoGriffekosten=gkRow?parseFloat(gkRow.bedrag_incl_btw)||0:0;
+  const byName={};(data||[]).forEach(r=>{byName[r.omschrijving]=parseFloat(r.bedrag_incl_btw)||0;});
+  const EXCLUDED=new Set(['Advocaatkosten','Griffiekosten']);
+  nwMoRows=MO_ORDER.filter(name=>name in byName&&!EXCLUDED.has(name)).map(name=>({omschrijving:name,bedrag:byName[name],invoiceBedrag:byName[name],advocaat:0,griffie:0,checked:false,aantal:1}));
+}
+
+async function onNwMoPeriodChange(val){
+  await loadNwMoBedragen(val);
+  pickNwDiensten();
+  renderNwDiensten();
+}
+
+function pickNwDiensten(){
+  if(!nwDossierData)return;
+  const info=tryParseJSON(nwDossierData.info_data);
+  const klant=info._klant||{};const dienst=info._dienstverlening||{};
+  const type=dienst.type||'',relatie=klant.relatie||'',kinderen=klant.kinderen||'',bedrijf=klant.bedrijf||'',rechtbank=dienst.rechtbank||'';
+  const isGehuwd=relatie==='Gehuwd'||relatie==='Geregistreerd Partner';
+  const isSW=relatie==='Samenlevers';
+  const metKind=kinderen==='Kinderen <8'||kinderen==='Kinderen >8';
+  const zonderKind=kinderen==='Geen';
+  const isScheid=type==='Scheiding';
+  const heeftRechtbank=rechtbank==='Ja';
+  nwMoRows.forEach(row=>{
+    const n=row.omschrijving;
+    row.checked=
+      (n==='Gehuwd/GP zonder kinderen'&&isScheid&&isGehuwd&&zonderKind)||
+      (n==='Gehuwd/GP met kinderen'   &&isScheid&&isGehuwd&&metKind)   ||
+      (n==='SW zonder kinderen'       &&isScheid&&isSW    &&zonderKind)||
+      (n==='SW met kinderen'          &&isScheid&&isSW    &&metKind)   ||
+      (n==='Ondernemer ZZP'           &&bedrijf==='ZZP')               ||
+      (n==='Ondernemer BV'            &&bedrijf==='BV')                ||
+      (n==='Ouderschapsplan los'      &&type==='Herziening OP')        ||
+      (n==='Herberekening'            &&type==='Herberekening')        ||
+      (n==='Scheiden of blijven'      &&type==='Scheiden of Blijven')  ||
+      (n==='Relatie mediation'        &&type==='Relatiemediation')     ||
+      (n==='Uurtarief'                &&type==='Uurtarief');
+    if(row.checked)row.invoiceBedrag=row.bedrag;
+    if(row.checked&&heeftRechtbank&&RECHTBANK_ROWS.has(n)){row.advocaat=nwAdvocaatBedrag;row.griffie=nwMoGriffekosten;}
+    else{row.advocaat=0;row.griffie=0;}
+  });
+}
+
+function applySavedDiensten(savedDiensten){
+  nwMoRows.forEach(row=>{row.checked=false;row.advocaat=0;row.griffie=0;});
+  savedDiensten.forEach(saved=>{
+    const row=nwMoRows.find(r=>r.omschrijving===saved.naam);if(!row)return;
+    row.checked=true;row.aantal=saved.aantal!=null?saved.aantal:1;
+    row.invoiceBedrag=saved.bedrag!=null?saved.bedrag:row.bedrag;
+    row.advocaat=saved.advocaat!=null?saved.advocaat:0;row.griffie=saved.griffie!=null?saved.griffie:0;
+  });
+}
+
+function nwGetRvrTypeKlant(){
+  if(!nwDossierData)return null;
+  const info=tryParseJSON(nwDossierData.info_data);
+  const klant=info._klant||{};const dienst=info._dienstverlening||{};
+  const type=dienst.type||'',relatie=klant.relatie||'',kinderen=klant.kinderen||'',rechtbank=dienst.rechtbank||'';
+  const metKind=kinderen==='Kinderen <8'||kinderen==='Kinderen >8';
+  if(type==='Herziening OP'||type==='Herberekening')return'SW kids / OP';
+  if(relatie==='Gehuwd')return metKind?'Huwelijk met kinderen':'Huwelijk zonder kinderen';
+  if(relatie==='Geregistreerd Partner'){if(metKind)return'GP met kinderen';return rechtbank==='Ja'?'GP zonder kinderen / RB':'GP zonder kinderen / notarieel';}
+  if(relatie==='Samenlevers')return metKind?'SW kids / OP':'SW';
+  return null;
+}
+
+function nwCalcRvrBedrag(typeKlant,subType){
+  const row=nwRvrTariefRows.find(r=>r.type_klant===typeKlant&&r.sub_type===subType);
+  if(!row)return 0;
+  const toev=parseFloat(row.toev)||0,afh=parseFloat(row.afhechting)||0,kp=parseFloat(row.kinderen_punten)||0;
+  const adm=subType==='dubbele toevoeging'?nwRvrAdmKosten*2:nwRvrAdmKosten;
+  return((toev+afh+kp)*nwRvrPerPunt+adm)*1.21;
+}
+
+function renderNwToevoegingen(){
+  nwToevRows=[];
+  if(!nwDossierData)return;
+  const klant=tryParseJSON(nwDossierData.info_data)._klant||{};
+  [['_a',nwDossierData.toevoeging_a,nwDossierData.bevestigd_a,nwDossierData.eigen_bijdrage_a,klant.naam_a||'Persoon A'],
+   ['_b',nwDossierData.toevoeging_b,nwDossierData.bevestigd_b,nwDossierData.eigen_bijdrage_b,klant.naam_b||'Persoon B']]
+  .forEach(([,toev,bevestigd,eb,naam])=>{
+    if(toev!==1)return;
+    const soort=(eb||'').toLowerCase();const bedrag=soort==='hoog'?nwEbHoog:soort==='laag'?nwEbLaag:0;
+    nwToevRows.push({naam,datum:bevestigd,soort:eb||'',bedrag});
+  });
+  const wrap=document.getElementById('nw-toev-wrap');
+  const tbody=document.getElementById('nw-toev-body');
+  if(!nwToevRows.length){wrap.style.display='none';return;}
+  tbody.innerHTML='';
+  nwToevRows.forEach(row=>{
+    const tr=document.createElement('tr');
+    [{v:row.naam,cls:'td-l'},{v:row.datum?formatDate(row.datum):'—'},{v:row.soort?row.soort.charAt(0).toUpperCase()+row.soort.slice(1):'—'},{v:row.bedrag>0?formatAmount(row.bedrag):'—'}]
+    .forEach(({v,cls})=>{const td=document.createElement('td');if(cls)td.className=cls;td.textContent=v;tr.appendChild(td);});
+    tbody.appendChild(tr);
+  });
+  wrap.style.display='block';
+}
+
+function renderNwRvrUitkeringen(){
+  const wrap=document.getElementById('nw-rvr-wrap');
+  const tbody=document.getElementById('nw-rvr-body');
+  if(!nwDossierData){wrap.style.display='none';return;}
+  const toevA=nwDossierData.toevoeging_a===1,toevB=nwDossierData.toevoeging_b===1;
+  if(!toevA&&!toevB){wrap.style.display='none';return;}
+  const info=tryParseJSON(nwDossierData.info_data);const klant=info._klant||{};
+  const bothToev=toevA&&toevB,typeKlant=nwGetRvrTypeKlant();
+  const subType=bothToev?'dubbele toevoeging':'enkele toevoeging';
+  const fullBedrag=nwCalcRvrBedrag(typeKlant,subType);
+  const rvrPerPersoon=bothToev?fullBedrag/2:fullBedrag;
+  const rows=[];
+  if(toevA){const ebSoort=(nwDossierData.eigen_bijdrage_a||'').toLowerCase();const eb=ebSoort==='hoog'?nwEbHoog:ebSoort==='laag'?nwEbLaag:0;rows.push({naam:klant.naam_a||'Persoon A',rvr:rvrPerPersoon,eb,totaal:rvrPerPersoon-eb});}
+  if(toevB){const ebSoort=(nwDossierData.eigen_bijdrage_b||'').toLowerCase();const eb=ebSoort==='hoog'?nwEbHoog:ebSoort==='laag'?nwEbLaag:0;rows.push({naam:klant.naam_b||'Persoon B',rvr:rvrPerPersoon,eb,totaal:rvrPerPersoon-eb});}
+  tbody.innerHTML='';let totRvr=0,totEb=0,totTotaal=0;
+  rows.forEach(r=>{totRvr+=r.rvr;totEb+=r.eb;totTotaal+=r.totaal;
+    const tr=document.createElement('tr');
+    [{v:r.naam,cls:'td-l'},{v:formatAmount(r.rvr)},{v:r.eb>0?'− '+formatAmount(r.eb):'—'},{v:formatAmount(r.totaal),style:'font-weight:800;'}]
+    .forEach(({v,cls,style})=>{const td=document.createElement('td');if(cls)td.className=cls;if(style)td.style.cssText=style;td.textContent=v;tr.appendChild(td);});
+    tbody.appendChild(tr);
+  });
+  const tfoot=document.getElementById('nw-rvr-foot');tfoot.innerHTML='';
+  const ftr=document.createElement('tr');
+  [{v:'Totaal',style:'text-align:right;font-size:0.78rem;font-weight:700;color:var(--grey);'},{v:formatAmount(totRvr),style:'font-weight:800;'},{v:totEb>0?'− '+formatAmount(totEb):'—',style:'font-weight:800;'},{v:formatAmount(totTotaal),style:'font-weight:800;'}]
+  .forEach(({v,style})=>{const td=document.createElement('td');td.style.cssText=(style||'')+'padding:6px 8px;border-top:2px solid var(--orange);';td.textContent=v;ftr.appendChild(td);});
+  tfoot.appendChild(ftr);wrap.style.display='block';
+}
+
+function computeNwFactLines(){
+  if(!nwDossierData){nwFactLines={a:[],b:[]};return;}
+  const info=tryParseJSON(nwDossierData.info_data);const klant=info._klant||{};
+  const toevA=nwDossierData.toevoeging_a===1,toevB=nwDossierData.toevoeging_b===1;
+  const ebSoortA=(nwDossierData.eigen_bijdrage_a||'').toLowerCase(),ebSoortB=(nwDossierData.eigen_bijdrage_b||'').toLowerCase();
+  const ebAmtA=ebSoortA==='hoog'?nwEbHoog:ebSoortA==='laag'?nwEbLaag:0;
+  const ebAmtB=ebSoortB==='hoog'?nwEbHoog:ebSoortB==='laag'?nwEbLaag:0;
+  const hasBedrijf=klant.bedrijf==='ZZP'||klant.bedrijf==='BV';
+  const bedrijfRow=nwMoRows.find(r=>r.checked&&(r.omschrijving==='Ondernemer ZZP'||r.omschrijving==='Ondernemer BV'));
+  const diensten=nwMoRows.filter(r=>r.checked&&r.omschrijving!=='Ondernemer ZZP'&&r.omschrijving!=='Ondernemer BV');
+  const bedrijfPerson=(!toevA&&toevB)?'a':(toevA&&!toevB)?'b':'a';
+  const dienst=info._dienstverlening||{};const caseType=dienst.type||'';
+  const isOPSplit=caseType==='Herziening OP'||caseType==='Herberekening';nwIsOPSplit=isOPSplit;
+  function mk(o,b,t){return{omschrijving:o,bedrag:b,btw:t??21};}
+  const dienstenRB=diensten.filter(r=>RECHTBANK_ROWS.has(r.omschrijving));
+  const dienstenOtherAll=nwMoRows.filter(r=>r.checked&&!RECHTBANK_ROWS.has(r.omschrijving));
+  const totalAdvocaat=dienstenRB.reduce((s,r)=>s+(r.advocaat||0),0);
+  const totalMoGriffie=dienstenRB.reduce((s,r)=>s+(r.griffie||0),0);
+  function buildLines(side,hasToev,ebAmt){
+    const lines=[];const isBedrijf=hasBedrijf&&bedrijfRow&&bedrijfPerson===side;
+    function addOther(r,half){const isBr=r.omschrijving==='Ondernemer ZZP'||r.omschrijving==='Ondernemer BV';if(isBr)return;const amt=half?r.invoiceBedrag/2:r.invoiceBedrag;if(amt>0)lines.push(mk(r.omschrijving,amt,r.btw));}
+    if(!toevA&&!toevB&&!isOPSplit){
+      if(side!=='a')return lines;
+      dienstenRB.forEach(r=>{if(r.invoiceBedrag>0)lines.push(mk(r.omschrijving,r.invoiceBedrag,r.btw));});
+      if(totalAdvocaat>0)lines.push(mk('Advocaatkosten',totalAdvocaat,nwAdvocaatBtw));
+      if(totalMoGriffie>0)lines.push(mk('Griffiekosten',totalMoGriffie,0));
+      dienstenOtherAll.forEach(r=>addOther(r,false));
+      if(nwRvrVergoeding>0)lines.push(mk('RvR vergoeding',nwRvrVergoeding,21));
+      if(nwCoMediation>0)lines.push(mk('Co-mediation',nwCoMediation,21));
+      if(isBedrijf)lines.push(mk(bedrijfRow.omschrijving,bedrijfRow.invoiceBedrag,bedrijfRow.btw));
+    }else if(!hasToev){
+      dienstenRB.forEach(r=>{const h=r.invoiceBedrag/2;if(h>0)lines.push(mk(r.omschrijving,h,r.btw));});
+      if(totalAdvocaat>0)lines.push(mk('Advocaatkosten',totalAdvocaat/2,nwAdvocaatBtw));
+      if(totalMoGriffie>0)lines.push(mk('Griffiekosten',totalMoGriffie/2,0));
+      dienstenOtherAll.forEach(r=>addOther(r,true));
+      if(nwCoMediation>0)lines.push(mk('Co-mediation',nwCoMediation/2,21));
+      if(isBedrijf)lines.push(mk(bedrijfRow.omschrijving,bedrijfRow.invoiceBedrag,bedrijfRow.btw));
+    }else{
+      if(ebAmt>0)lines.push(mk('Eigen bijdrage',ebAmt,21));
+      if(nwGriffekosten>0&&totalMoGriffie!==0)lines.push(mk('Griffiekosten',nwGriffekosten/2,0));
+      if(nwRvrVergoeding>0)lines.push(mk('RvR vergoeding',nwRvrVergoeding,21));
+      if(nwCoMediation>0)lines.push(mk('Co-mediation',nwCoMediation/2,21));
+      if(isBedrijf)lines.push(mk(bedrijfRow.omschrijving,bedrijfRow.invoiceBedrag,bedrijfRow.btw));
+    }
+    return lines;
+  }
+  nwFactLines={a:buildLines('a',toevA,ebAmtA),b:buildLines('b',toevB,ebAmtB)};
+}
+
+function factLinesEqual(a,b){
+  function sig(lines){return JSON.stringify([...lines].sort((x,y)=>x.omschrijving.localeCompare(y.omschrijving)).map(l=>({o:l.omschrijving,b:Math.round((l.bedrag||0)*100)})));}
+  return sig(a.a)===sig(b.a)&&sig(a.b)===sig(b.b);
+}
+
+function renderNwConflictBanner(){
+  const existing=document.getElementById('nw-conflict-banner');if(existing)existing.remove();
+  if(!nwFactConflict)return;
+  const banner=document.createElement('div');banner.id='nw-conflict-banner';
+  banner.style.cssText='background:var(--orange-soft);border:1.5px solid var(--orange);border-radius:8px;padding:12px 16px;margin-bottom:12px;font-family:Nunito,sans-serif;';
+  const msg=document.createElement('p');msg.style.cssText='font-size:0.80rem;font-weight:700;color:var(--orange-dark);margin:0 0 10px;';msg.textContent='De situatie is gewijzigd t.o.v. de opgeslagen factuurregels.';
+  const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:10px;';
+  const btnKeep=document.createElement('button');btnKeep.className='btn btn-ghost';btnKeep.style.fontSize='0.78rem';btnKeep.textContent='Huidige instellingen behouden';
+  btnKeep.onclick=()=>{nwFactConflict=false;nwFactLinesFresh=null;renderNwConflictBanner();};
+  const btnApply=document.createElement('button');btnApply.className='btn-save';btnApply.style.fontSize='0.78rem';btnApply.textContent='Nieuwe berekening toepassen';
+  btnApply.onclick=()=>{nwFactLines=nwFactLinesFresh;nwFactConflict=false;nwFactLinesFresh=null;pickNwDiensten();renderNwDiensten();renderNwConflictBanner();};
+  btnRow.appendChild(btnKeep);btnRow.appendChild(btnApply);banner.appendChild(msg);banner.appendChild(btnRow);
+  const detail=document.getElementById('nw-detail');if(detail)detail.insertBefore(banner,detail.firstChild);
+}
+
+function renderNwDiensten(){
+  const tbody=document.getElementById('nw-diensten-body');tbody.innerHTML='';
+  nwMoRows.forEach((row,idx)=>{
+    const tr=document.createElement('tr');if(!row.checked)tr.classList.add('row-unchecked');
+    const tdCb=document.createElement('td');tdCb.style.textAlign='center';
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=row.checked;
+    cb.onchange=()=>{row.checked=cb.checked;tr.classList.toggle('row-unchecked',!cb.checked);[inpB,inpA,inpG].forEach(i=>i.disabled=!cb.checked);calcNwTotal();};
+    tdCb.appendChild(cb);tr.appendChild(tdCb);
+    const tdN=document.createElement('td');tdN.className='td-l';tdN.textContent=row.omschrijving;tr.appendChild(tdN);
+    const tdAantal=document.createElement('td');tdAantal.style.textAlign='right';
+    if(row.omschrijving==='Uurtarief'){
+      const inpAantal=document.createElement('input');inpAantal.type='text';inpAantal.className='fact-inp-sm';inpAantal.style.width='48px';inpAantal.disabled=!row.checked;inpAantal.value=row.checked?String(row.aantal||1):'';inpAantal.placeholder=row.checked?'1':'';
+      inpAantal.addEventListener('change',()=>{const n=Math.max(0,parseFloat(inpAantal.value.replace(',','.'))||0);inpAantal.value=String(n);row.aantal=n;row.invoiceBedrag=n*row.bedrag;inpB.value=fmtMoney(row.invoiceBedrag);calcNwTotal();});
+      cb.addEventListener('change',()=>{inpAantal.disabled=!cb.checked;});tdAantal.appendChild(inpAantal);
+    }
+    tr.appendChild(tdAantal);
+    const inpB=makeFactInp(row.invoiceBedrag||0,!row.checked,v=>{row.invoiceBedrag=v;calcNwTotal();});
+    const tdB=document.createElement('td');tdB.appendChild(inpB);tr.appendChild(tdB);
+    const showAdvGriffie=RECHTBANK_ROWS.has(row.omschrijving);
+    const tdA=document.createElement('td'),tdG=document.createElement('td');
+    let inpA,inpG;
+    if(showAdvGriffie){inpA=makeFactInp(row.advocaat||0,!row.checked,v=>{row.advocaat=v;calcNwTotal();});tdA.appendChild(inpA);inpG=makeFactInp(row.griffie||0,!row.checked,v=>{row.griffie=v;calcNwTotal();});tdG.appendChild(inpG);}
+    else{inpA=document.createElement('input');inpA.disabled=true;inpG=document.createElement('input');inpG.disabled=true;}
+    tr.appendChild(tdA);tr.appendChild(tdG);
+    const tdT=document.createElement('td');tdT.dataset.role='row-tot';tdT.style.fontWeight='800';tr.appendChild(tdT);
+    tbody.appendChild(tr);
+  });
+  calcNwTotal();
+}
+
+function makeFactInp(initVal,disabled,onChange){
+  const inp=document.createElement('input');inp.type='text';inp.className='fact-inp-sm';inp.disabled=disabled;
+  inp.value=initVal>0?fmtMoney(initVal):'';inp.placeholder=disabled?'':'0,00';
+  inp.addEventListener('change',()=>{const v=parseFloat(inp.value.replace(',','.'))||0;inp.value=v>0?fmtMoney(v):'';onChange(v);});
+  return inp;
+}
+
+function calcNwTotal(){
+  let total=0;const tbody=document.getElementById('nw-diensten-body');
+  nwMoRows.forEach((row,i)=>{const rowTot=row.checked?(row.invoiceBedrag+row.advocaat+row.griffie):0;total+=rowTot;const tr=tbody.rows[i];if(tr){const td=tr.querySelector('[data-role="row-tot"]');if(td)td.textContent=row.checked?formatAmount(rowTot):'';} });
+  document.getElementById('nw-totaal-cel').textContent=total>0?formatAmount(total):'—';
+  document.getElementById('nw-bedrag').value=total>0?fmtMoney(total):'';
+}
+
+// ── Save ──
+async function submitFactuur(){
+  const klant=document.getElementById('nw-dossier-input').value.trim();
+  const dossierId=document.getElementById('nw-dossier-id').value||null;
+  const factuurnummer=document.getElementById('nw-factuurnr').value.trim()||null;
+  const factuurdatum=document.getElementById('nw-factuurdat').value||null;
+  const vervaldatum=document.getElementById('nw-vervaldat').value||null;
+  const bedragRaw=document.getElementById('nw-bedrag').value.replace(',','.');
+  const bedrag=bedragRaw?parseFloat(bedragRaw):null;
+  const status=document.getElementById('nw-status').value;
+  if(!klant){showToast('Selecteer eerst een dossier');return;}
+  const regels=nwDossierData?{
+    periode_mo:document.getElementById('nw-mo-period').value||null,
+    diensten:nwMoRows.filter(r=>r.checked).map(r=>({naam:r.omschrijving,bedrag:r.invoiceBedrag,aantal:r.aantal||1,advocaat:r.advocaat||0,griffie:r.griffie||0})),
+    toevoegingen:nwToevRows,rvr_vergoeding:nwRvrVergoeding,co_mediation:nwCoMediation,factuur_lines:nwFactLines,
+  }:null;
+  const payload={klant,factuurnummer,factuurdatum,vervaldatum,bedrag:(bedrag!==null&&!isNaN(bedrag))?bedrag:null,status,...(regels?{regels}:{})};
+  if(nwEditId){
+    const{error}=await db.from('facturen').update(payload).eq('id',nwEditId);
+    if(error){showToast('Opslaan mislukt: '+error.message);return;}
+    showToast('Factuur bijgewerkt');
+  }else{
+    const{data,error}=await db.from('facturen').insert({dossier_id:dossierId,...payload}).select().single();
+    if(error){showToast('Opslaan mislukt: '+error.message);return;}
+    nwEditId=data.id;
+    document.getElementById('btn-tab-facturen').disabled=false;
+    // Update URL without reload
+    history.replaceState(null,'','factuur-details.html?id='+nwEditId);
+    showToast('Factuur aangemaakt');
+  }
+}
+
+// ── Init ──
+async function init(){
+  const{data:{session}}=await db.auth.getSession();
+  document.getElementById('loadingOverlay').style.display='none';
+  if(!session){window.location.href='index.html';return;}
+  window._clUser=session.user.email;
+  document.getElementById('userEmail').textContent=session.user.email;
+  document.getElementById('appScreen').style.display='block';
+
+  const params=new URLSearchParams(location.search);
+  const factuurId=params.get('id');
+
+  if(factuurId){
+    // Editing existing factuur
+    const{data:factuur}=await db.from('facturen').select('*').eq('id',factuurId).single();
+    if(!factuur){showToast('Factuur niet gevonden');return;}
+    nwEditId=factuur.id;
+    document.getElementById('nw-dossier-input').value=factuur.klant||'';
+    document.getElementById('nw-dossier-input').disabled=true;
+    document.getElementById('nw-dossier-id').value=factuur.dossier_id||'';
+    document.getElementById('nw-factuurnr').value=factuur.factuurnummer||'';
+    document.getElementById('nw-factuurdat').value=factuur.factuurdatum||'';
+    document.getElementById('nw-vervaldat').value=factuur.vervaldatum||'';
+    document.getElementById('nw-bedrag').value=factuur.bedrag!=null?fmtMoney(factuur.bedrag):'';
+    document.getElementById('nw-status').value=factuur.status||'open';
+    const savedR=factuur.regels||{};
+    nwRvrVergoeding=savedR.rvr_vergoeding||0;nwCoMediation=savedR.co_mediation||0;
+    nwSavedFactLines=savedR.factuur_lines||null;
+    document.getElementById('page-title').textContent=factuur.klant||'Factuur';
+    document.getElementById('dossier-row').style.display='none';  // name is already in header
+    if(factuur.dossier_id)await loadNwDossierDetail({id:factuur.dossier_id,klant:factuur.klant},factuur.regels||null);
+  }else{
+    // New factuur
+    const today=new Date().toISOString().slice(0,10);
+    const in30=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+    document.getElementById('nw-factuurdat').value=today;
+    document.getElementById('nw-vervaldat').value=in30;
+    document.getElementById('btn-tab-facturen').disabled=true;
+    const{data}=await db.from('dossiers').select('id,klant').order('klant');
+    allDossiers=data||[];
+    document.getElementById('nw-dossier-input').focus();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
