@@ -265,9 +265,9 @@
     <div class="search-box">
       <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
       <input type="text" id="searchInput" placeholder="Zoek op dossiernaam..."
-        oninput="filterRows(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
+        oninput="sessionStorage.setItem('sharedSearch',this.value);filterRows(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">
       <button id="searchClear" class="search-clear" style="display:none"
-        onclick="document.getElementById('searchInput').value='';filterRows('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
+        onclick="document.getElementById('searchInput').value='';sessionStorage.removeItem('sharedSearch');filterRows('');this.style.display='none';document.getElementById('searchInput').focus()">×</button>
     </div>
     <select class="kanban-sort-select toolbar-sort" id="statusFilter" onchange="filterRows(document.getElementById('searchInput').value)">
       <option value="">Status: alle</option>
@@ -456,17 +456,17 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const COLUMNS = [
-  { label: '',                 key: '_del',               type: 'del',    sortable: false, thClass: 'no-sort'  },
-  { label: 'Dossier',          key: 'klant',            type: 'string', sortable: true,  thClass: 'ch-klant' },
-  { label: 'Omschrijving',     key: 'omschrijving',      type: 'omshr',  sortable: false, thClass: 'ch-o'     },
-  { label: 'Factuurnummer',    key: 'factuurnummer',     type: 'string', sortable: true,  thClass: ''         },
-  { label: 'Factuurdatum',     key: 'factuurdatum',      type: 'date',   sortable: true,  thClass: ''         },
-  { label: 'Vervaldatum',      key: 'vervaldatum',       type: 'date',   sortable: true,  thClass: ''         },
-  { label: 'Bedrag',           key: 'bedrag',            type: 'amount',  sortable: true,  thClass: ''         },
-  { label: 'Verschil',         key: '_verschil',         type: 'verschil',sortable: false, thClass: 'no-sort'  },
-  { label: 'Status',           key: 'status',            type: 'status',  sortable: true,  thClass: ''         },
-  { label: 'Betaaldatum',      key: 'betaaldatum',       type: 'date',   sortable: true,  thClass: ''         },
-  { label: 'Opmerkingen',      key: 'opmerkingen',       type: 'opm',    sortable: false, thClass: 'ch-o'     },
+  { label: '',                 key: '_del',          type: 'del',     sortable: false, thClass: 'no-sort' },
+  { label: 'Dossier',          key: 'klant',         type: 'string',  sortable: true,  thClass: 'ch-klant'},
+  { label: 'Omschrijving',     key: 'omschrijving',  type: 'omshr',   sortable: true,  thClass: 'ch-o'   },
+  { label: 'Factuurnummer',    key: 'factuurnummer', type: 'string',  sortable: true,  thClass: ''       },
+  { label: 'Factuurdatum',     key: 'factuurdatum',  type: 'date',    sortable: true,  thClass: ''       },
+  { label: 'Vervaldatum',      key: 'vervaldatum',   type: 'date',    sortable: true,  thClass: ''       },
+  { label: 'Bedrag',           key: 'bedrag',        type: 'amount',  sortable: true,  thClass: ''       },
+  { label: 'Verschil',         key: '_verschil',     type: 'verschil',sortable: true,  thClass: ''       },
+  { label: 'Status',           key: 'status',        type: 'status',  sortable: true,  thClass: ''       },
+  { label: 'Betaaldatum',      key: 'betaaldatum',   type: 'date',    sortable: true,  thClass: ''       },
+  { label: 'Opmerkingen',      key: 'opmerkingen',   type: 'opm',     sortable: true,  thClass: 'ch-o'   },
 ];
 
 let rows = [];
@@ -566,12 +566,15 @@ function renderSummary() {
   const el = document.getElementById('factSummary');
   if (!el) return;
   let sumOpen = 0, cntOpen = 0, sumVerlopen = 0, cntVerlopen = 0;
+  let sumRvR = 0, cntRvR = 0;
   rows.forEach(row => {
     const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+    const isUitbetaling = row.regels?.sub_label === 'Uitbetaling vergoedingen toevoegingen';
     const amt = (row.bedrag || 0) * (isIncoming ? -1 : 1);
     const eff = isVerlopen(row) ? 'verlopen' : (row.status || 'open');
     if (eff === 'open')     { sumOpen     += amt; cntOpen++;     }
     if (eff === 'verlopen') { sumVerlopen += amt; cntVerlopen++; }
+    if (isUitbetaling && eff === 'open') { sumRvR += row.bedrag || 0; cntRvR++; }
   });
   const total = sumOpen + sumVerlopen;
   const cntTotal = cntOpen + cntVerlopen;
@@ -584,9 +587,10 @@ function renderSummary() {
   }
   el.style.display = 'flex';
   el.innerHTML =
-    pill('Open',    sumOpen,    cntOpen,    'var(--orange-dark)', 'var(--orange-soft)') +
-    pill('Verlopen',sumVerlopen,cntVerlopen,'#c0392b',            '#FDECEA') +
-    pill('Totaal openstaand', total, cntTotal, 'var(--ink)', '#f0f0f0');
+    pill('Open',              sumOpen,    cntOpen,    'var(--orange-dark)', 'var(--orange-soft)') +
+    pill('Verlopen',          sumVerlopen,cntVerlopen,'#c0392b',            '#FDECEA') +
+    pill('Totaal openstaand', total,      cntTotal,   'var(--ink)',         '#f0f0f0') +
+    pill('RvR te declareren', sumRvR,     cntRvR,     '#1a6b3c',            '#d4edda');
 }
 
 // ── Render table ──
@@ -780,19 +784,49 @@ function doSort(idx) {
   filterRows(document.getElementById('searchInput').value);
 }
 
+function getSortVal(row, col) {
+  switch (col.type) {
+    case 'date': {
+      const d = row[col.key];
+      return d ? new Date(d).getTime() : null;
+    }
+    case 'amount': {
+      const amt = row.bedrag ?? 0;
+      const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+      return isIncoming ? -amt : amt;
+    }
+    case 'verschil': {
+      const calcAmt = row.regels?.bedrag_incl_calc;
+      const factAmt = row.bedrag;
+      if (calcAmt == null || factAmt == null) return null;
+      const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+      return isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
+    }
+    case 'status':
+      return isVerlopen(row) ? 'verlopen' : (row.status || 'open');
+    case 'omshr': {
+      const sub = row.regels?.sub_label;
+      if (sub) return sub;
+      const diensten = row.regels?.diensten || [];
+      if (diensten.length) return diensten.map(d => d.naam).join(', ');
+      const lines = [...(row.regels?.factuur_lines?.a||[]), ...(row.regels?.factuur_lines?.b||[])];
+      return lines.map(l => l.omschrijving).filter((v,i,a) => a.indexOf(v)===i).join(', ');
+    }
+    default:
+      return row[col.key] ?? '';
+  }
+}
+
 function sortedRows(data) {
   const col = COLUMNS[sortCol];
   return [...data].sort((a, b) => {
-    let va = a[col.key] ?? '', vb = b[col.key] ?? '';
-    if (col.type === 'date') {
-      va = va ? new Date(va).getTime() : Infinity;
-      vb = vb ? new Date(vb).getTime() : Infinity;
-      return sortDir * (va - vb);
-    }
-    if (col.type === 'amount') {
-      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
-      return sortDir * (va - vb);
-    }
+    const va = getSortVal(a, col);
+    const vb = getSortVal(b, col);
+    // nulls always sort to end regardless of direction
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'number' && typeof vb === 'number') return sortDir * (va - vb);
     return sortDir * String(va).localeCompare(String(vb), 'nl');
   });
 }
@@ -848,6 +882,14 @@ function exportCSV() {
         if (calcAmt == null || factAmt == null) return '';
         const diff = isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
         return Math.abs(diff) < 0.005 ? '' : diff.toFixed(2).replace('.', ',');
+      }
+      if (col.type === 'omshr') {
+        const sub = row.regels?.sub_label;
+        if (sub) return sub.replace(/;/g, ',');
+        const diensten = row.regels?.diensten || [];
+        if (diensten.length) return diensten.map(d => d.naam).join(', ').replace(/;/g, ',');
+        const lines = [...(row.regels?.factuur_lines?.a||[]), ...(row.regels?.factuur_lines?.b||[])];
+        return lines.map(l => l.omschrijving).filter((v,i,a) => a.indexOf(v)===i).join(', ').replace(/;/g, ',');
       }
       if (col.type === 'status') return isVerlopen(row) ? 'verlopen' : (row.status || 'open');
       if (col.type === 'del' || col.type === 'opm') return (row[col.key] ?? '').toString().replace(/;/g, ',');
@@ -2258,11 +2300,14 @@ async function init() {
   document.getElementById('userEmail').textContent = session.user.email;
   document.getElementById('appScreen').style.display = 'block';
   buildHeader();
-  // Pre-fill search from ?q= (e.g. when navigating from info.html Facturen button)
+  // Pre-fill search: ?q= takes priority (navigation from info.html), then sessionStorage (shared with toevoegingen)
   const _qParam = new URLSearchParams(location.search).get('q');
-  if (_qParam) {
-    document.getElementById('searchInput').value = _qParam;
+  const _savedSearch = sessionStorage.getItem('sharedSearch');
+  const _initSearch = _qParam || _savedSearch || '';
+  if (_initSearch) {
+    document.getElementById('searchInput').value = _initSearch;
     document.getElementById('searchClear').style.display = 'flex';
+    if (_qParam) sessionStorage.setItem('sharedSearch', _qParam); // keep sessionStorage in sync
   }
   await loadRows();
 }

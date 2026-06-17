@@ -214,7 +214,7 @@ main { padding: 28px 32px; display: none; }
       <button id="toevoegingenBtn" class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='toevoegingen.html'">Toevoegingen</button>
       <button id="hypotheekBtn" class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='hypotheeklead.html'">Hypotheek leads</button>
       <button class="btn btn-ghost" onclick="window.location.href='agenda.html'">Agenda</button>
-      <button class="btn btn-ghost" onclick="window.location.href='facturen.html'">Facturen</button>
+      <button class="btn btn-ghost" onclick="sessionStorage.setItem('sharedSearch',document.getElementById('klantName').textContent);window.location.href='facturen.html'">Facturen</button>
     </div>
     <div class="header-actions">
       <span class="sync" id="syncStatus">● opgeslagen</span>
@@ -765,6 +765,7 @@ function renderForm() {
   factBtn.textContent = '3. Facturen';
   factBtn.onclick = async () => {
     const klant = statusData?.klant || '';
+    if (klant) sessionStorage.setItem('sharedSearch', klant);
     const { data: existingF } = await db.from('facturen').select('id').eq('dossier_id', String(dossierId)).limit(1);
     if (existingF && existingF.length > 0) {
       window.location.href = 'facturen.html' + (klant ? '?q=' + encodeURIComponent(klant) : '');
