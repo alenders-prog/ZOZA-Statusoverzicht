@@ -169,8 +169,8 @@ const COLUMNS = [
   { label: 'Datum ingediend',        colKey: 'aangevraagd',            type: 'date',   sortable: true,  thClass: 'ch1',  perPerson: true   },
   { label: 'Datum toegekend',        colKey: 'bevestigd',              type: 'date',   sortable: true,  thClass: 'ch1',  perPerson: true   },
   { label: 'Datum afgewezen',        colKey: 'toev_afgewezen',         type: 'date',   sortable: true,  thClass: 'ch1',  perPerson: true   },
-  { label: 'Vergoeding aangevraagd', colKey: 'vergoeding_aangevraagd', type: 'date',   sortable: true,  thClass: 'ch2',  perPerson: true   },
-  { label: 'Vergoeding ontvangen',   colKey: 'vergoeding_ontvangen',   type: 'date',   sortable: true,  thClass: 'ch2',  perPerson: true   },
+  { label: 'Vergoeding aangevraagd', colKey: 'vergoeding_aangevraagd', type: 'date',   sortable: true,  thClass: 'ch2',  perPerson: false  },
+  { label: 'Vergoeding ontvangen',   colKey: 'vergoeding_ontvangen',   type: 'date',   sortable: true,  thClass: 'ch2',  perPerson: false  },
   { label: 'Opmerkingen',            colKey: null,                     type: 'string', sortable: false, thClass: 'ch-o'                    },
 ];
 
@@ -234,12 +234,15 @@ function isAlarm(colKey, rawRow, suffix) {
       const days = parseInt(alarmSettings.reactie_docs_teurlings) || 14;
       return deadlinePassed(rawRow['aangevraagd' + sfx], days);
     }
-    case 'vergoeding_aangevraagd':
-      return !rawRow['vergoeding_aangevraagd' + sfx] && (rawRow.kanban_column === 'gemeente' || rawRow.kanban_column === 'afronding' || hasValue(rawRow.verstuurd_gemeente) || hasValue(rawRow.beeindigd));
+    case 'vergoeding_aangevraagd': {
+      const va = rawRow['vergoeding_aangevraagd' + sfx] || rawRow.vergoeding_aangevraagd;
+      return !va && (rawRow.kanban_column === 'gemeente' || rawRow.kanban_column === 'afronding' || hasValue(rawRow.verstuurd_gemeente) || hasValue(rawRow.beeindigd));
+    }
     case 'vergoeding_ontvangen': {
-      if (rawRow['vergoeding_ontvangen' + sfx]) return false;
+      if (rawRow['vergoeding_ontvangen' + sfx] || rawRow.vergoeding_ontvangen) return false;
       const d = parseInt(alarmSettings.reactie_vergoeding_rvr) || 0;
-      return !!d && deadlinePassed(rawRow['vergoeding_aangevraagd' + sfx], d);
+      const va = rawRow['vergoeding_aangevraagd' + sfx] || rawRow.vergoeding_aangevraagd;
+      return !!d && deadlinePassed(va, d);
     }
     default:
       return false;
@@ -592,7 +595,7 @@ async function init() {
 
   // Fetch all dossiers with toevoeging — filtering is done client-side via the search box
   const { data } = await db.from('dossiers')
-    .select('id, klant, info_data, kanban_column, toevoeging_a, toevoeging_b, eigen_bijdrage_a, eigen_bijdrage_b, toev_aangevraagd_a, toev_aangevraagd_b, aangevraagd_a, aangevraagd_b, bevestigd_a, bevestigd_b, toev_afgewezen_a, toev_afgewezen_b, vergoeding_aangevraagd_a, vergoeding_aangevraagd_b, vergoeding_ontvangen_a, vergoeding_ontvangen_b, beeindigd, verstuurd_gemeente, opmerkingen_toevoeging')
+    .select('id, klant, info_data, kanban_column, toevoeging_a, toevoeging_b, eigen_bijdrage_a, eigen_bijdrage_b, toev_aangevraagd_a, toev_aangevraagd_b, aangevraagd_a, aangevraagd_b, bevestigd_a, bevestigd_b, toev_afgewezen_a, toev_afgewezen_b, vergoeding_aangevraagd_a, vergoeding_aangevraagd_b, vergoeding_ontvangen_a, vergoeding_ontvangen_b, vergoeding_aangevraagd, vergoeding_ontvangen, beeindigd, verstuurd_gemeente, opmerkingen_toevoeging')
     .or('toevoeging_a.eq.1,toevoeging_b.eq.1')
     .order('klant');
 
@@ -608,8 +611,8 @@ async function init() {
         row['aangevraagd'             + suffix],
         row['bevestigd'               + suffix],
         row['toev_afgewezen'          + suffix],
-        row['vergoeding_aangevraagd'  + suffix],
-        row['vergoeding_ontvangen'    + suffix],
+        row['vergoeding_aangevraagd'  + suffix] || row.vergoeding_aangevraagd  || null,
+        row['vergoeding_ontvangen'    + suffix] || row.vergoeding_ontvangen    || null,
       ];
       const ebRaw = row['eigen_bijdrage' + suffix] || null;
       const ebDisplay = ebRaw ? (ebRaw.charAt(0).toUpperCase() + ebRaw.slice(1)) : '—';

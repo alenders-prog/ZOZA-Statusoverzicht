@@ -16,29 +16,42 @@
 #factScroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); }
 #factTable { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 
-/* Fixed column widths */
-#factTable thead tr.col-row th:nth-child(3),
-#factTable thead tr.col-row th:nth-child(4),
+/* Fixed column widths — del is col 1, Dossier col 2, Omschrijving col 3, then date/amount cols */
+/* cols 5-7 = Factuurdatum, Vervaldatum, Bedrag; col 8 = Verschil (narrow); col 9 = Status */
 #factTable thead tr.col-row th:nth-child(5),
-#factTable thead tr.col-row th:nth-child(6) { width: 160px; }
+#factTable thead tr.col-row th:nth-child(6),
+#factTable thead tr.col-row th:nth-child(7),
+#factTable thead tr.col-row th:nth-child(9) { width: 160px; }
+#factTable thead tr.col-row th:nth-child(8) { width: 100px; }
+
+/* Delete column */
+#factTable thead tr.col-row th:nth-child(1) { width: 32px; padding: 0; }
 
 /* Sticky header */
 #factTable thead tr.col-row th { position: sticky; top: 0; z-index: 9; background: var(--orange-soft); }
 
-/* Sticky dossier column */
-#factTable thead tr.col-row th:first-child { position: sticky; top: 0; left: 0; z-index: 12; }
+/* Sticky del + dossier columns */
+#factTable thead tr.col-row th:nth-child(1) { position: sticky; top: 0; left: 0; z-index: 12; }
+#factTable thead tr.col-row th:nth-child(2) { position: sticky; top: 0; left: 32px; z-index: 12; }
+#factTable tbody td.col-del { left: 0; }
 #factTable tbody td.col-klant {
-  position: sticky; left: 0; z-index: 5;
+  position: sticky; left: 32px; z-index: 5;
   background: var(--white); border-right: 1px solid var(--grey-rule);
+  white-space: nowrap;
 }
+#factTable .ch-klant { white-space: nowrap; }
 #factTable tbody tr:nth-child(even) td.col-klant { background: #FAFAFA; }
 #factTable tbody tr:hover td.col-klant { background: var(--orange-soft); }
 
 .sort-arrow { margin-left: 4px; opacity: 0.45; font-style: normal; font-size: 0.7em; }
 .sort-arrow.active { opacity: 1; }
+
+/* Orange separator between dossier groups when sorted by Dossier column */
+#factTable tbody tr.dossier-separator td { border-top: 2px solid var(--orange); }
+#factTable tbody tr:has(+ tr.dossier-separator) td { border-bottom: none; }
 #factTable thead th.no-sort { cursor: default; }
 #factTable thead th.no-sort:hover { filter: none; }
-#factTable .ch-klant { min-width: 0; top: 0 !important; left: 0 !important; z-index: 12 !important; }
+#factTable .ch-klant { min-width: 0; top: 0 !important; left: 32px !important; z-index: 12 !important; }
 
 .text-td .cell-display { justify-content: flex-start; }
 .date-td .cell-display.nvt { color: var(--grey); }
@@ -59,6 +72,20 @@
 }
 
 #factTable thead th.ch-o { text-align: left; }
+
+/* Betaaldatum popup */
+.betaald-pop {
+  display: none; position: fixed; z-index: 9999;
+  background: #fff; border-radius: 8px; padding: 16px 18px;
+  box-shadow: 0 6px 28px rgba(0,0,0,0.18); font-family: 'Nunito', sans-serif;
+  min-width: 220px;
+}
+.betaald-pop.open { display: block; }
+.betaald-pop-title {
+  font-size: 0.70rem; font-weight: 800; color: var(--grey);
+  text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;
+}
+.betaald-pop-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
 /* Status badge */
 .status-badge {
@@ -248,14 +275,15 @@
       <option value="betaald">Betaald</option>
       <option value="verlopen">Verlopen</option>
     </select>
+    <button class="btn-save" style="margin-left:4px;" onclick="window.location.href='factuur-details.html'">+ Nieuw</button>
     <button class="btn btn-ghost toolbar-sep" onclick="exportCSV()">↓ Export CSV</button>
     <button class="btn btn-ghost" onclick="window.location.href='rvr.html'">RvR tabel</button>
     <button class="btn btn-ghost" onclick="window.location.href='mo_bedragen.html'">MO bedragen</button>
-    <button class="btn-save" style="margin-left:8px;" onclick="window.location.href='factuur-details.html'">+ Nieuw</button>
   </div>
 
   <div style="margin:32px 0;padding:0 28px;">
     <div class="fact-section-title">Facturen</div>
+    <div id="factSummary" style="display:none;font-family:'Nunito',sans-serif;font-size:0.82rem;font-weight:600;display:flex;gap:24px;flex-wrap:wrap;padding:10px 0 14px;"></div>
     <div id="factScroll">
       <table id="factTable" style="width:100%;">
         <thead><tr id="factHead" class="col-row"></tr></thead>
@@ -342,6 +370,8 @@
                   <th style="width:130px;">Datum toegekend</th>
                   <th style="width:110px;">Eigen bijdrage</th>
                   <th style="width:100px;">Bedrag</th>
+                  <th style="width:130px;">Verg. aangevraagd</th>
+                  <th style="width:130px;">Verg. ontvangen</th>
                 </tr>
               </thead>
               <tbody id="nw-toev-body"></tbody>
@@ -376,7 +406,7 @@
       </div><!-- /.modal-body -->
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeNieuwModal()">Annuleren</button>
-        <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
+        <div id="nw-save-row" style="display:flex;align-items:center;gap:10px;margin-left:auto;">
           <select id="nw-status" class="form-inp" style="width:120px;border:1.5px solid var(--grey-rule);border-radius:4px;padding:5px 8px;">
             <option value="open">Open</option>
             <option value="betaald">Betaald</option>
@@ -399,6 +429,26 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h2>Factuur verwijderen</h2>
+    <p>Weet je zeker dat je deze factuur wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+    <div class="modal-actions">
+      <button class="btn" style="color:var(--ink);border-color:var(--rule)" onclick="closeDeleteModal()">Annuleren</button>
+      <button class="btn btn-primary" onclick="confirmDelete()">Verwijderen</button>
+    </div>
+  </div>
+</div>
+
+<div id="betaald-pop" class="betaald-pop">
+  <div class="betaald-pop-title">Betaaldatum</div>
+  <input id="betaald-pop-date" type="date" class="form-inp" style="width:100%;">
+  <div class="betaald-pop-footer">
+    <button class="btn btn-ghost" onclick="closeBetaaldPop()">Annuleren</button>
+    <button class="btn-save" onclick="confirmBetaaldPop()">Opslaan</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -406,25 +456,90 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const COLUMNS = [
+  { label: '',                 key: '_del',               type: 'del',    sortable: false, thClass: 'no-sort'  },
   { label: 'Dossier',          key: 'klant',            type: 'string', sortable: true,  thClass: 'ch-klant' },
+  { label: 'Omschrijving',     key: 'omschrijving',      type: 'omshr',  sortable: false, thClass: 'ch-o'     },
   { label: 'Factuurnummer',    key: 'factuurnummer',     type: 'string', sortable: true,  thClass: ''         },
   { label: 'Factuurdatum',     key: 'factuurdatum',      type: 'date',   sortable: true,  thClass: ''         },
   { label: 'Vervaldatum',      key: 'vervaldatum',       type: 'date',   sortable: true,  thClass: ''         },
-  { label: 'Bedrag',           key: 'bedrag',            type: 'amount', sortable: true,  thClass: ''         },
-  { label: 'Status',           key: 'status',            type: 'status', sortable: true,  thClass: ''         },
+  { label: 'Bedrag',           key: 'bedrag',            type: 'amount',  sortable: true,  thClass: ''         },
+  { label: 'Verschil',         key: '_verschil',         type: 'verschil',sortable: false, thClass: 'no-sort'  },
+  { label: 'Status',           key: 'status',            type: 'status',  sortable: true,  thClass: ''         },
+  { label: 'Betaaldatum',      key: 'betaaldatum',       type: 'date',   sortable: true,  thClass: ''         },
   { label: 'Opmerkingen',      key: 'opmerkingen',       type: 'opm',    sortable: false, thClass: 'ch-o'     },
 ];
 
 let rows = [];
-let sortCol = 0, sortDir = 1;
+let sortCol = 1, sortDir = 1;  // default: Dossier ascending
 let thEls = [];
 let searchQuery = '';
+let rowToDelete = null;
 
 // ── Auth ──
 async function signOut() {
   await db.auth.signOut();
   window.location.href = 'index.html';
 }
+
+// Sub-facturen (created via "Factuur toevoegen") navigate to the dossier calculations page;
+// main facturen navigate to the details/edit page.
+function navigateToFactuurRow(row) {
+  if (row.regels?.sub_label && row.dossier_id) {
+    window.location.href = 'factuur-facturen.html?dossier_id=' + row.dossier_id;
+  } else {
+    window.location.href = 'factuur-details.html?id=' + row.id;
+  }
+}
+
+// ── Betaaldatum popup ──
+let _betaaldRow = null, _betaaldTd = null;
+
+function openBetaaldPop(e, row, td) {
+  _betaaldRow = row;
+  _betaaldTd = td;
+  const pop = document.getElementById('betaald-pop');
+  const dateInp = document.getElementById('betaald-pop-date');
+  dateInp.value = row.betaaldatum || '';
+  pop.classList.add('open');
+  // Position near the clicked badge
+  const rect = td.getBoundingClientRect();
+  const popW = 230, popH = 110;
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+  if (top + popH > window.innerHeight - 8) top = rect.top - popH - 6;
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+  setTimeout(() => dateInp.focus(), 50);
+}
+
+function closeBetaaldPop() {
+  document.getElementById('betaald-pop').classList.remove('open');
+  _betaaldRow = null; _betaaldTd = null;
+}
+
+async function confirmBetaaldPop() {
+  if (!_betaaldRow) return;
+  const datum = document.getElementById('betaald-pop-date').value;
+  if (!datum) { showToast('Vul een betaaldatum in'); return; }
+  const { error } = await db.from('facturen')
+    .update({ status: 'betaald', betaaldatum: datum })
+    .eq('id', _betaaldRow.id);
+  if (error) { showToast('Opslaan mislukt: ' + error.message); return; }
+  _betaaldRow.status = 'betaald';
+  _betaaldRow.betaaldatum = datum;
+  closeBetaaldPop();
+  filterRows(document.getElementById('searchInput').value);
+  showToast('Betaaldatum opgeslagen');
+}
+
+// Close popup when clicking outside
+document.addEventListener('click', e => {
+  const pop = document.getElementById('betaald-pop');
+  if (pop && pop.classList.contains('open') && !pop.contains(e.target)) {
+    closeBetaaldPop();
+  }
+});
 
 // ── Format helpers ──
 function formatDate(v) {
@@ -446,6 +561,34 @@ function isVerlopen(row) {
   return new Date(row.vervaldatum) < new Date();
 }
 
+// ── Summary bar ──
+function renderSummary() {
+  const el = document.getElementById('factSummary');
+  if (!el) return;
+  let sumOpen = 0, cntOpen = 0, sumVerlopen = 0, cntVerlopen = 0;
+  rows.forEach(row => {
+    const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+    const amt = (row.bedrag || 0) * (isIncoming ? -1 : 1);
+    const eff = isVerlopen(row) ? 'verlopen' : (row.status || 'open');
+    if (eff === 'open')     { sumOpen     += amt; cntOpen++;     }
+    if (eff === 'verlopen') { sumVerlopen += amt; cntVerlopen++; }
+  });
+  const total = sumOpen + sumVerlopen;
+  const cntTotal = cntOpen + cntVerlopen;
+  function pill(label, amt, cnt, color, bg) {
+    return `<span style="background:${bg};color:${color};border-radius:6px;padding:5px 14px;white-space:nowrap;">
+      <span style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;opacity:0.75;">${label}</span>
+      &nbsp;<span style="font-weight:800;">${formatAmount(amt)}</span>
+      <span style="font-size:0.72rem;opacity:0.65;margin-left:4px;">(${cnt})</span>
+    </span>`;
+  }
+  el.style.display = 'flex';
+  el.innerHTML =
+    pill('Open',    sumOpen,    cntOpen,    'var(--orange-dark)', 'var(--orange-soft)') +
+    pill('Verlopen',sumVerlopen,cntVerlopen,'#c0392b',            '#FDECEA') +
+    pill('Totaal openstaand', total, cntTotal, 'var(--ink)', '#f0f0f0');
+}
+
 // ── Render table ──
 function buildHeader() {
   const tr = document.getElementById('factHead');
@@ -454,7 +597,9 @@ function buildHeader() {
   COLUMNS.forEach((col, i) => {
     const th = document.createElement('th');
     th.className = (col.sortable ? '' : 'no-sort ') + (col.thClass || '');
-    th.innerHTML = col.label + (col.sortable ? `<i class="sort-arrow" id="sa${i}">↕</i>` : '');
+    const isActive = col.sortable && i === sortCol;
+    const arrow = isActive ? (sortDir === 1 ? '↑' : '↓') : '↕';
+    th.innerHTML = col.label + (col.sortable ? `<i class="sort-arrow${isActive ? ' active' : ''}" id="sa${i}">${arrow}</i>` : '');
     if (col.sortable) th.addEventListener('click', () => doSort(i));
     tr.appendChild(th);
     thEls.push(th);
@@ -473,14 +618,43 @@ function renderRows(data) {
   document.getElementById('emptyMsg').style.display = 'none';
   document.getElementById('factScroll').style.display = '';
 
+  let prevKlant = null;
   data.forEach(row => {
     const tr = document.createElement('tr');
+    if (sortCol === 1 && prevKlant !== null && row.klant !== prevKlant) {
+      tr.classList.add('dossier-separator');
+    }
+    prevKlant = row.klant;
     const effectiveStatus = isVerlopen(row) ? 'verlopen' : (row.status || 'open');
 
     COLUMNS.forEach(col => {
       const td = document.createElement('td');
 
-      if (col.type === 'opm') {
+      if (col.type === 'del') {
+        td.className = 'col-del';
+        td.style.cssText = 'width:32px;text-align:center;padding:0;';
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '✕'; delBtn.title = 'Verwijder factuur'; delBtn.className = 'del-btn';
+        delBtn.onclick = e => { e.stopPropagation(); openDeleteModal(rows.indexOf(row)); };
+        td.appendChild(delBtn);
+
+      } else if (col.type === 'omshr') {
+        const subLabel = row.regels?.sub_label;
+        const diensten = row.regels?.diensten || [];
+        const tekst = subLabel
+          ? subLabel
+          : diensten.length
+            ? diensten.map(d => d.naam).join(', ')
+            : (row.regels?.factuur_lines?.a?.length || row.regels?.factuur_lines?.b?.length
+                ? [...(row.regels.factuur_lines.a||[]), ...(row.regels.factuur_lines.b||[])].map(l => l.omschrijving).filter((v,i,a)=>a.indexOf(v)===i).join(', ')
+                : '—');
+        td.className = 'text-td editable-row-cell';
+        td.style.cursor = 'pointer';
+        td.style.maxWidth = '220px';
+        td.innerHTML = `<div class="cell-display" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;padding:8px 10px"><span title="${tekst}">${tekst}</span></div>`;
+        td.addEventListener('click', () => { navigateToFactuurRow(row); });
+
+      } else if (col.type === 'opm') {
         td.className = 'opm-td';
         const display = document.createElement('div');
         display.className = 'opm-display' + (row[col.key] ? '' : ' empty');
@@ -521,16 +695,46 @@ function renderRows(data) {
         td.innerHTML = `<div class="cell-display">${formatDate(row[col.key])}</div>`;
 
       } else if (col.type === 'amount') {
+        const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
         td.className = 'date-td editable-row-cell';
         td.style.cssText += 'text-align:right;cursor:pointer;';
-        td.innerHTML = `<div class="cell-display" style="justify-content:flex-end">${formatAmount(row[col.key])}</div>`;
+        const amtVal = row[col.key];
+        const amtDisplay = amtVal != null
+          ? (isIncoming ? `<span style="color:#c0392b;font-weight:700;">− ${formatAmount(amtVal)}</span>` : formatAmount(amtVal))
+          : '—';
+        td.innerHTML = `<div class="cell-display" style="justify-content:flex-end">${amtDisplay}</div>`;
+
+      } else if (col.type === 'verschil') {
+        const calcAmt = row.regels?.bedrag_incl_calc;
+        const factAmt = row.bedrag;
+        td.style.cssText += 'text-align:right;';
+        if (calcAmt == null || factAmt == null) {
+          td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:var(--grey);">—</div>`;
+        } else {
+          const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+          const diff = isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
+          if (Math.abs(diff) < 0.005) {
+            td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:var(--grey);">—</div>`;
+          } else {
+            const color = diff > 0 ? '#27ae60' : '#c0392b';
+            const prefix = diff > 0 ? '+' : '';
+            td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:${color};font-weight:700;">${prefix}${formatAmount(diff)}</div>`;
+          }
+        }
 
       } else if (col.type === 'status') {
-        td.className = 'editable-row-cell';
         td.style.cssText += 'text-align:center;cursor:pointer;';
         td.innerHTML = `<div class="cell-display" style="justify-content:center">
           <span class="status-badge ${effectiveStatus}">${effectiveStatus}</span>
         </div>`;
+        td.addEventListener('click', e => {
+          e.stopPropagation();
+          if (effectiveStatus === 'open' || effectiveStatus === 'verlopen') {
+            openBetaaldPop(e, row, td);
+          } else {
+            navigateToFactuurRow(row);
+          }
+        });
 
       } else {
         td.className = 'text-td editable-row-cell';
@@ -539,7 +743,7 @@ function renderRows(data) {
       }
 
       td.addEventListener('click', e => {
-        if (td.classList.contains('editable-row-cell')) window.location.href = 'factuur-details.html?id=' + row.id;
+        if (td.classList.contains('editable-row-cell')) navigateToFactuurRow(row);
       });
 
       tr.appendChild(td);
@@ -547,6 +751,22 @@ function renderRows(data) {
 
     tbody.appendChild(tr);
   });
+  sizeKlantCol();
+}
+
+function sizeKlantCol() {
+  const th = document.querySelector('#factTable .ch-klant');
+  if (!th) return;
+  const spans = document.querySelectorAll('#factBody td.col-klant span');
+  if (!spans.length) { th.style.width = ''; return; }
+  // Off-screen ruler matching cell-display font for col-klant (700 0.78rem Nunito, 10px side padding)
+  const ruler = document.createElement('span');
+  ruler.setAttribute('style', 'position:fixed;top:-9999px;left:-9999px;white-space:nowrap;font:700 12.5px Nunito,sans-serif;padding:0;visibility:hidden;');
+  document.body.appendChild(ruler);
+  let maxW = 0;
+  spans.forEach(s => { ruler.textContent = s.textContent; maxW = Math.max(maxW, ruler.offsetWidth); });
+  document.body.removeChild(ruler);
+  th.style.width = Math.ceil(maxW + 20) + 'px'; // +20px for 10px cell padding each side
 }
 
 // ── Sort ──
@@ -604,7 +824,8 @@ async function loadRows() {
     return;
   }
   rows = data || [];
-  filterRows('');
+  renderSummary();
+  filterRows(document.getElementById('searchInput').value);
 }
 
 // ── Export CSV ──
@@ -612,9 +833,24 @@ function exportCSV() {
   const headers = COLUMNS.map(c => c.label);
   const csvRows = [headers.join(';')];
   rows.forEach(row => {
+    const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
     const vals = COLUMNS.map(col => {
       if (col.type === 'date') return formatDate(row[col.key]);
-      if (col.type === 'amount') return (row[col.key] ?? '').toString().replace('.', ',');
+      if (col.type === 'amount') {
+        const amt = row[col.key];
+        if (amt == null) return '';
+        const val = isIncoming ? -amt : amt;
+        return val.toFixed(2).replace('.', ',');
+      }
+      if (col.type === 'verschil') {
+        const calcAmt = row.regels?.bedrag_incl_calc;
+        const factAmt = row.bedrag;
+        if (calcAmt == null || factAmt == null) return '';
+        const diff = isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
+        return Math.abs(diff) < 0.005 ? '' : diff.toFixed(2).replace('.', ',');
+      }
+      if (col.type === 'status') return isVerlopen(row) ? 'verlopen' : (row.status || 'open');
+      if (col.type === 'del' || col.type === 'opm') return (row[col.key] ?? '').toString().replace(/;/g, ',');
       return (row[col.key] ?? '').toString().replace(/;/g, ',');
     });
     csvRows.push(vals.join(';'));
@@ -676,6 +912,11 @@ function tryParseJSON(v) {
 }
 
 function showNwTab(tab) {
+  // In new-factuur mode (no nwEditId), the Facturen tab navigates to the dedicated page
+  if (tab === 'facturen' && !nwEditId) {
+    const dossierId = document.getElementById('nw-dossier-id').value;
+    if (dossierId) { window.location.href = 'factuur-facturen.html?dossier_id=' + dossierId; return; }
+  }
   document.getElementById('nw-view-main').style.display     = tab === 'main'     ? '' : 'none';
   document.getElementById('nw-view-facturen').style.display = tab === 'facturen' ? '' : 'none';
   document.querySelectorAll('#nw-tabs .nw-tab').forEach(btn => {
@@ -764,7 +1005,7 @@ async function loadNwDossierDetail(d, savedRegels) {
 
   // Load full dossier row
   const { data: dos } = await db.from('dossiers')
-    .select('id, klant, info_data, toevoeging_a, toevoeging_b, bevestigd_a, bevestigd_b, eigen_bijdrage_a, eigen_bijdrage_b')
+    .select('id, klant, info_data, toevoeging_a, toevoeging_b, bevestigd_a, bevestigd_b, eigen_bijdrage_a, eigen_bijdrage_b, vergoeding_aangevraagd_a, vergoeding_aangevraagd_b, vergoeding_ontvangen_a, vergoeding_ontvangen_b')
     .eq('id', d.id).single();
   nwDossierData = dos;
 
@@ -878,6 +1119,10 @@ async function loadNwDossierDetail(d, savedRegels) {
 
   document.getElementById('nw-detail').style.display = 'block';
   document.getElementById('nieuwPanel').classList.add('wide');
+  // Show tab bar so user can navigate to Facturen without pressing Opslaan
+  document.getElementById('nw-tabs').style.display = 'flex';
+  // In new mode, hide Opslaan — facturen are created via "Factuur toevoegen" buttons
+  document.getElementById('nw-save-row').style.display = nwEditId ? '' : 'none';
 }
 
 async function loadNwMoBedragen(periodKey) {
@@ -1842,13 +2087,13 @@ function renderNwToevoegingen() {
   nwToevRows = [];
   if (!nwDossierData) return;
   const klant = tryParseJSON(nwDossierData.info_data)._klant || {};
-  [['_a', nwDossierData.toevoeging_a, nwDossierData.bevestigd_a, nwDossierData.eigen_bijdrage_a, klant.naam_a || 'Persoon A'],
-   ['_b', nwDossierData.toevoeging_b, nwDossierData.bevestigd_b, nwDossierData.eigen_bijdrage_b, klant.naam_b || 'Persoon B']]
-  .forEach(([, toev, bevestigd, eb, naam]) => {
+  [['_a', nwDossierData.toevoeging_a, nwDossierData.bevestigd_a, nwDossierData.eigen_bijdrage_a, klant.naam_a || 'Persoon A', nwDossierData.vergoeding_aangevraagd_a, nwDossierData.vergoeding_ontvangen_a],
+   ['_b', nwDossierData.toevoeging_b, nwDossierData.bevestigd_b, nwDossierData.eigen_bijdrage_b, klant.naam_b || 'Persoon B', nwDossierData.vergoeding_aangevraagd_b, nwDossierData.vergoeding_ontvangen_b]]
+  .forEach(([, toev, bevestigd, eb, naam, vergAangevraagd, vergOntvangen]) => {
     if (toev !== 1) return;
     const soort = (eb || '').toLowerCase();
     const bedrag = soort === 'hoog' ? nwEbHoog : soort === 'laag' ? nwEbLaag : 0;
-    nwToevRows.push({ naam, datum: bevestigd, soort: eb || '', bedrag });
+    nwToevRows.push({ naam, datum: bevestigd, soort: eb || '', bedrag, vergAangevraagd, vergOntvangen });
   });
 
   const wrap = document.getElementById('nw-toev-wrap');
@@ -1862,6 +2107,8 @@ function renderNwToevoegingen() {
       { v: row.datum ? formatDate(row.datum) : '—' },
       { v: row.soort ? row.soort.charAt(0).toUpperCase() + row.soort.slice(1) : '—' },
       { v: row.bedrag > 0 ? formatAmount(row.bedrag) : '—' },
+      { v: row.vergAangevraagd && row.vergAangevraagd !== 'n.v.t.' ? formatDate(row.vergAangevraagd) : (row.vergAangevraagd === 'n.v.t.' ? 'n.v.t.' : '—') },
+      { v: row.vergOntvangen   && row.vergOntvangen   !== 'n.v.t.' ? formatDate(row.vergOntvangen)   : (row.vergOntvangen   === 'n.v.t.' ? 'n.v.t.' : '—') },
     ].forEach(({ v, cls }) => {
       const td = document.createElement('td');
       if (cls) td.className = cls; td.textContent = v; tr.appendChild(td);
@@ -1985,6 +2232,23 @@ function showToast(msg) {
   setTimeout(() => el.classList.remove('show'), 3000);
 }
 
+// ── Delete ──
+function openDeleteModal(idx) { rowToDelete = idx; document.getElementById('deleteModal').classList.add('open'); }
+function closeDeleteModal() { rowToDelete = null; document.getElementById('deleteModal').classList.remove('open'); }
+async function confirmDelete() {
+  if (rowToDelete === null) return;
+  const row = rows[rowToDelete];
+  const { error } = await db.from('facturen').delete().eq('id', row.id);
+  if (error) { showToast('Verwijderen mislukt: ' + error.message); closeDeleteModal(); return; }
+  rows.splice(rowToDelete, 1);
+  closeDeleteModal();
+  filterRows(searchQuery);
+  showToast('Factuur verwijderd');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+});
+
 // ── Init ──
 async function init() {
   const { data: { session } } = await db.auth.getSession();
@@ -1994,6 +2258,12 @@ async function init() {
   document.getElementById('userEmail').textContent = session.user.email;
   document.getElementById('appScreen').style.display = 'block';
   buildHeader();
+  // Pre-fill search from ?q= (e.g. when navigating from info.html Facturen button)
+  const _qParam = new URLSearchParams(location.search).get('q');
+  if (_qParam) {
+    document.getElementById('searchInput').value = _qParam;
+    document.getElementById('searchClear').style.display = 'flex';
+  }
   await loadRows();
 }
 

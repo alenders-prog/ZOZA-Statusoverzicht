@@ -760,6 +760,19 @@ function renderForm() {
     btn.onclick = () => { activeTab = id; renderForm(); };
     tabBar.appendChild(btn);
   });
+  const factBtn = document.createElement('button');
+  factBtn.className = 'tab-btn';
+  factBtn.textContent = '3. Facturen';
+  factBtn.onclick = async () => {
+    const klant = statusData?.klant || '';
+    const { data: existingF } = await db.from('facturen').select('id').eq('dossier_id', String(dossierId)).limit(1);
+    if (existingF && existingF.length > 0) {
+      window.location.href = 'facturen.html' + (klant ? '?q=' + encodeURIComponent(klant) : '');
+    } else {
+      window.location.href = 'factuur-details.html?dossier_id=' + encodeURIComponent(dossierId);
+    }
+  };
+  tabBar.appendChild(factBtn);
   main.appendChild(tabBar);
 
   if (activeTab === 'klantstatus') {

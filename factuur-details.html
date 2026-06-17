@@ -51,6 +51,14 @@
 .fact-inp-sm:not(:disabled) { border-bottom-color: #ddd; cursor: text; }
 .fact-inp-sm:not(:disabled):focus { border-bottom-color: var(--orange); background: #fff8f0; }
 .fact-inp-sm:disabled { color: transparent; pointer-events: none; }
+.sel-pill {
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 600;
+  background: var(--grey-light); border: 1.5px solid var(--grey-rule);
+  border-radius: 20px; padding: 6px 14px; color: var(--ink);
+  outline: none; cursor: pointer; appearance: auto;
+  transition: border-color 0.15s;
+}
+.sel-pill:focus { border-color: var(--orange); }
 .dossier-wrap { position: relative; }
 .dossier-dd {
   display: none; position: absolute; top: 100%; left: 0; right: 0;
@@ -129,10 +137,14 @@
     <div id="dossier-row" class="form-row" style="margin-bottom:12px;max-width:340px;">
       <label class="form-lbl">Dossier</label>
       <div class="dossier-wrap">
-        <input id="nw-dossier-input" class="form-inp" type="text" placeholder="Zoek dossier..." autocomplete="off"
-          oninput="filterDossierList(this.value)"
-          onblur="setTimeout(()=>document.getElementById('nw-dossier-dd').classList.remove('open'),150)"
-          onkeydown="dossierKeyNav(event)">
+        <div class="search-box" style="min-width:0;">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
+          <input id="nw-dossier-input" type="text" placeholder="Zoek dossier..." autocomplete="off"
+            oninput="filterDossierList(this.value)"
+            onfocus="filterDossierList(this.value)"
+            onblur="setTimeout(()=>document.getElementById('nw-dossier-dd').classList.remove('open'),150)"
+            onkeydown="dossierKeyNav(event)">
+        </div>
         <div id="nw-dossier-dd" class="dossier-dd"></div>
         <input type="hidden" id="nw-dossier-id">
       </div>
@@ -141,7 +153,7 @@
     <!-- MO period selector (always shown once a dossier is selected) -->
     <div class="form-row" id="nw-mo-period-row" style="visibility:hidden;max-width:260px;margin-bottom:16px;">
       <label class="form-lbl">Periode MO</label>
-      <select id="nw-mo-period" class="form-inp" onchange="onNwMoPeriodChange(this.value)"></select>
+      <select id="nw-mo-period" class="sel-pill" onchange="onNwMoPeriodChange(this.value)"></select>
     </div>
 
     <!-- Detail sections (shown after dossier selection) -->
@@ -276,6 +288,8 @@ const RECHTBANK_ROWS = new Set([
 function fmtMoney(v) {
   return new Intl.NumberFormat('nl-NL',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 }
+// Parse Dutch-formatted numbers: strip thousands separator (.) before swapping decimal comma
+function parseDutch(s){return parseFloat((s||'').replace(/\./g,'').replace(',','.'))||0;}
 function tryParseJSON(v) { try{return JSON.parse(v)||{};}catch{return{};} }
 function formatDate(v) {
   if(!v||v==='n.v.t.')return v||'—';
@@ -295,18 +309,24 @@ async function signOut(){await db.auth.signOut();window.location.href='index.htm
 
 // ── Navigation ──
 function goToFacturenTab() {
-  if (!nwEditId) { showToast('Sla de factuur eerst op'); return; }
   sessionStorage.setItem('nw_zs_factor',    nwZsFactor);
   sessionStorage.setItem('nw_zs_co_factor', nwZsCoFactor);
-  window.location.href = 'factuur-facturen.html?id=' + nwEditId;
+  if (nwEditId) {
+    window.location.href = 'factuur-facturen.html?id=' + nwEditId;
+  } else {
+    const dossierId = document.getElementById('nw-dossier-id').value;
+    if (dossierId) { window.location.href = 'factuur-facturen.html?dossier_id=' + dossierId; return; }
+    showToast('Selecteer eerst een dossier');
+  }
 }
 
 // ── Dossier autocomplete ──
 function filterDossierList(q) {
   const dd = document.getElementById('nw-dossier-dd');
   ddActiveIdx = -1; dd.innerHTML = '';
-  if (!q.trim()) { dd.classList.remove('open'); return; }
-  const matches = allDossiers.filter(d => d.klant && d.klant.toLowerCase().includes(q.toLowerCase())).slice(0,25);
+  const matches = q.trim()
+    ? allDossiers.filter(d => d.klant && d.klant.toLowerCase().includes(q.toLowerCase())).slice(0, 25)
+    : allDossiers.slice(0, 100);
   if (!matches.length) { dd.classList.remove('open'); return; }
   matches.forEach((d,i) => {
     const div = document.createElement('div');
@@ -321,6 +341,7 @@ function selectDossier(d) {
   document.getElementById('nw-dossier-id').value   = d.id;
   document.getElementById('nw-dossier-dd').classList.remove('open');
   ddActiveIdx = -1;
+  nwEditId = null; // reset so auto-save creates a new factuur for this dossier
   loadNwDossierDetail(d, null);
 }
 function dossierKeyNav(e) {
@@ -353,7 +374,10 @@ async function loadNwDossierDetail(d, savedRegels) {
   sel.innerHTML='';
   moPeriods.forEach(p=>{const o=document.createElement('option');o.value=p.van+'|'+p.tot;o.textContent=p.van.slice(5,7)+'/'+p.van.slice(0,4)+' – '+p.tot.slice(5,7)+'/'+p.tot.slice(0,4);sel.appendChild(o);});
   document.getElementById('nw-mo-period-row').style.visibility = moPeriods.length?'visible':'hidden';
-  if(savedRegels&&savedRegels.periode_mo){const opt=sel.querySelector(`option[value="${savedRegels.periode_mo}"]`);if(opt)sel.value=savedRegels.periode_mo;}
+  // Restore period: saved regels → sessionStorage → default (latest)
+  const _sessionPeriod=nwDossierData?.id?sessionStorage.getItem('period_mo_'+nwDossierData.id):null;
+  const _savedPeriod=(savedRegels&&savedRegels.periode_mo)||_sessionPeriod||null;
+  if(_savedPeriod){const opt=sel.querySelector(`option[value="${_savedPeriod}"]`);if(opt)sel.value=_savedPeriod;}
 
   // RvR period matching bevestigd date
   nwEbHoog=0;nwEbLaag=0;nwGriffekosten=0;
@@ -372,7 +396,7 @@ async function loadNwDossierDetail(d, savedRegels) {
     if(nwRvrTariefRows.length&&nwRvrTariefRows[0].per_punt!=null){nwRvrPerPunt=parseFloat(nwRvrTariefRows[0].per_punt)||0;nwRvrAdmKosten=parseFloat(nwRvrTariefRows[0].adm)||0;}
   }
 
-  const periodToLoad=(savedRegels&&savedRegels.periode_mo)||(moPeriods.length?moPeriods[0].van+'|'+moPeriods[0].tot:null);
+  const periodToLoad=_savedPeriod||(moPeriods.length?moPeriods[0].van+'|'+moPeriods[0].tot:null);
   if(periodToLoad)await loadNwMoBedragen(periodToLoad); else nwMoRows=[];
 
   renderNwToevoegingen();
@@ -409,7 +433,24 @@ async function loadNwMoBedragen(periodKey){
 async function onNwMoPeriodChange(val){
   await loadNwMoBedragen(val);
   pickNwDiensten();
+  computeNwFactLines();
   renderNwDiensten();
+  // Always persist period in sessionStorage so Facturen tab picks it up
+  if(nwDossierData?.id) sessionStorage.setItem('period_mo_'+nwDossierData.id, val);
+  // Only update DB if a factuur already exists (no auto-create)
+  if(nwEditId) await autoSaveRegels('Periode opgeslagen');
+}
+
+async function autoSaveRegels(toastMsg){
+  if(!nwEditId||!nwDossierData)return;
+  const regels={
+    periode_mo:document.getElementById('nw-mo-period').value||null,
+    diensten:nwMoRows.filter(r=>r.checked).map(r=>({naam:r.omschrijving,bedrag:r.invoiceBedrag,aantal:r.aantal||1,advocaat:r.advocaat||0,griffie:r.griffie||0})),
+    toevoegingen:nwToevRows,rvr_vergoeding:nwRvrVergoeding,co_mediation:nwCoMediation,factuur_lines:nwFactLines,
+  };
+  const{error}=await db.from('facturen').update({regels}).eq('id',nwEditId);
+  if(error){showToast('Auto-save mislukt: '+error.message);return;}
+  if(toastMsg)showToast(toastMsg);
 }
 
 function pickNwDiensten(){
@@ -607,7 +648,7 @@ function renderNwDiensten(){
     const tdAantal=document.createElement('td');tdAantal.style.textAlign='right';
     if(row.omschrijving==='Uurtarief'){
       const inpAantal=document.createElement('input');inpAantal.type='text';inpAantal.className='fact-inp-sm';inpAantal.style.width='48px';inpAantal.disabled=!row.checked;inpAantal.value=row.checked?String(row.aantal||1):'';inpAantal.placeholder=row.checked?'1':'';
-      inpAantal.addEventListener('change',()=>{const n=Math.max(0,parseFloat(inpAantal.value.replace(',','.'))||0);inpAantal.value=String(n);row.aantal=n;row.invoiceBedrag=n*row.bedrag;inpB.value=fmtMoney(row.invoiceBedrag);calcNwTotal();});
+      inpAantal.addEventListener('change',()=>{const n=Math.max(0,parseDutch(inpAantal.value));inpAantal.value=String(n);row.aantal=n;row.invoiceBedrag=n*row.bedrag;inpB.value=fmtMoney(row.invoiceBedrag);calcNwTotal();});
       cb.addEventListener('change',()=>{inpAantal.disabled=!cb.checked;});tdAantal.appendChild(inpAantal);
     }
     tr.appendChild(tdAantal);
@@ -628,7 +669,7 @@ function renderNwDiensten(){
 function makeFactInp(initVal,disabled,onChange){
   const inp=document.createElement('input');inp.type='text';inp.className='fact-inp-sm';inp.disabled=disabled;
   inp.value=initVal>0?fmtMoney(initVal):'';inp.placeholder=disabled?'':'0,00';
-  inp.addEventListener('change',()=>{const v=parseFloat(inp.value.replace(',','.'))||0;inp.value=v>0?fmtMoney(v):'';onChange(v);});
+  inp.addEventListener('change',()=>{const v=parseDutch(inp.value);inp.value=v>0?fmtMoney(v):'';onChange(v);});
   return inp;
 }
 
@@ -646,8 +687,8 @@ async function submitFactuur(){
   const factuurnummer=document.getElementById('nw-factuurnr').value.trim()||null;
   const factuurdatum=document.getElementById('nw-factuurdat').value||null;
   const vervaldatum=document.getElementById('nw-vervaldat').value||null;
-  const bedragRaw=document.getElementById('nw-bedrag').value.replace(',','.');
-  const bedrag=bedragRaw?parseFloat(bedragRaw):null;
+  const bedragRaw=document.getElementById('nw-bedrag').value.trim();
+  const bedrag=bedragRaw?parseDutch(bedragRaw):null;
   const status=document.getElementById('nw-status').value;
   if(!klant){showToast('Selecteer eerst een dossier');return;}
   const regels=nwDossierData?{
@@ -664,7 +705,6 @@ async function submitFactuur(){
     const{data,error}=await db.from('facturen').insert({dossier_id:dossierId,...payload}).select().single();
     if(error){showToast('Opslaan mislukt: '+error.message);return;}
     nwEditId=data.id;
-    document.getElementById('btn-tab-facturen').disabled=false;
     // Update URL without reload
     history.replaceState(null,'','factuur-details.html?id='+nwEditId);
     showToast('Factuur aangemaakt');
@@ -697,21 +737,54 @@ async function init(){
     document.getElementById('nw-bedrag').value=factuur.bedrag!=null?fmtMoney(factuur.bedrag):'';
     document.getElementById('nw-status').value=factuur.status||'open';
     const savedR=factuur.regels||{};
+    // Sub-facturen (created via "Factuur toevoegen") have no meaningful details view here —
+    // redirect straight to the dossier calculations page.
+    if(savedR.sub_label&&factuur.dossier_id){
+      window.location.href='factuur-facturen.html?dossier_id='+factuur.dossier_id;
+      return;
+    }
     nwRvrVergoeding=savedR.rvr_vergoeding||0;nwCoMediation=savedR.co_mediation||0;
     nwSavedFactLines=savedR.factuur_lines||null;
     document.getElementById('page-title').textContent=factuur.klant||'Factuur';
     document.getElementById('dossier-row').style.display='none';  // name is already in header
     if(factuur.dossier_id)await loadNwDossierDetail({id:factuur.dossier_id,klant:factuur.klant},factuur.regels||null);
   }else{
-    // New factuur
+    // New factuur (or returning from factuur-facturen.html with ?dossier_id=)
     const today=new Date().toISOString().slice(0,10);
     const in30=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
     document.getElementById('nw-factuurdat').value=today;
     document.getElementById('nw-vervaldat').value=in30;
-    document.getElementById('btn-tab-facturen').disabled=true;
     const{data}=await db.from('dossiers').select('id,klant').order('klant');
     allDossiers=data||[];
-    document.getElementById('nw-dossier-input').focus();
+    const dossierId=params.get('dossier_id');
+    if(dossierId){
+      const dos=allDossiers.find(d=>String(d.id)===String(dossierId));
+      if(dos){
+        document.getElementById('nw-dossier-input').value=dos.klant;
+        document.getElementById('nw-dossier-id').value=dos.id;
+        // Look up existing main factuur (no sub_label) to restore saved period & diensten
+        const{data:existingF}=await db.from('facturen').select('*').eq('dossier_id',String(dossierId));
+        const mainFactuur=(existingF||[]).find(f=>!f.regels?.sub_label);
+        if(mainFactuur){
+          nwEditId=mainFactuur.id;
+          nwRvrVergoeding=mainFactuur.regels?.rvr_vergoeding||0;
+          nwCoMediation=mainFactuur.regels?.co_mediation||0;
+          nwSavedFactLines=mainFactuur.regels?.factuur_lines||null;
+          document.getElementById('nw-factuurnr').value=mainFactuur.factuurnummer||'';
+          document.getElementById('nw-factuurdat').value=mainFactuur.factuurdatum||'';
+          document.getElementById('nw-vervaldat').value=mainFactuur.vervaldatum||'';
+          document.getElementById('nw-bedrag').value=mainFactuur.bedrag!=null?fmtMoney(mainFactuur.bedrag):'';
+          document.getElementById('nw-status').value=mainFactuur.status||'open';
+          await loadNwDossierDetail(dos,mainFactuur.regels||null);
+        }else{
+          await loadNwDossierDetail(dos,null);
+        }
+      }else{
+        document.getElementById('nw-dossier-input').focus();
+      }
+    }else{
+      document.getElementById('nw-dossier-input').focus();
+    }
   }
 }
 

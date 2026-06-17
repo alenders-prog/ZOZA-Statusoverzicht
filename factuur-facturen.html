@@ -66,6 +66,47 @@
 .tab-btn.active { background: var(--orange); color: var(--white); border-color: var(--orange); }
 .tab-btn:hover:not(.active) { border-color: var(--orange); color: var(--orange); }
 .tab-btn:hover:not(.active) { border-color: var(--orange); color: var(--orange); }
+
+/* ── Shared form primitives (mirrors facturen.html) ── */
+.form-lbl {
+  font-size: 0.70rem; font-weight: 800; color: var(--grey);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.form-inp {
+  font-family: 'Nunito', sans-serif; font-size: 0.87rem; font-weight: 600;
+  border: none; border-bottom: 2px solid var(--grey-rule);
+  padding: 5px 3px; outline: none; background: transparent; color: var(--ink);
+  width: 100%; box-sizing: border-box; min-height: unset;
+}
+.form-inp:focus { border-bottom-color: var(--orange); background: #fff8f0; }
+.btn-save {
+  font-family: 'Nunito', sans-serif; font-size: 0.82rem; font-weight: 800;
+  background: var(--orange); color: white; border: none; border-radius: 6px;
+  padding: 7px 20px; cursor: pointer;
+}
+.btn-save:hover { background: var(--orange-dark); }
+
+/* ── Factuur dialog ── */
+.fd-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.42); align-items: center; justify-content: center;
+}
+.fd-overlay.open { display: flex; }
+.fd-box {
+  background: #fff; border-radius: 10px; padding: 28px 32px;
+  min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  font-family: 'Nunito', sans-serif;
+}
+.fd-title {
+  font-size: 1rem; font-weight: 800; color: var(--ink); margin-bottom: 20px;
+}
+.fd-fields { display: flex; flex-direction: column; gap: 14px; }
+.fd-field { display: flex; flex-direction: column; gap: 4px; }
+.fd-sep { border-top: 1px solid var(--grey-rule); margin: 16px 0 0; }
+.fd-readonly { color: var(--grey); pointer-events: none; }
+.fd-footer {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;
+}
 </style>
 </head>
 <body>
@@ -123,6 +164,45 @@
   </div>
 </div>
 
+<div id="factuur-dialog" class="fd-overlay">
+  <div class="fd-box">
+    <div id="fd-title" class="fd-title"></div>
+    <div class="fd-fields">
+      <div class="fd-field">
+        <label class="form-lbl">Factuurnummer</label>
+        <input id="fd-nr" type="text" class="form-inp" autocomplete="off">
+      </div>
+      <div class="fd-field">
+        <label class="form-lbl">Factuurdatum</label>
+        <input id="fd-datum" type="date" class="form-inp">
+      </div>
+      <div class="fd-field">
+        <label class="form-lbl">Vervaldatum</label>
+        <input id="fd-verval" type="date" class="form-inp">
+      </div>
+    </div>
+    <div class="fd-sep"></div>
+    <div class="fd-fields" style="margin-top:14px;">
+      <div class="fd-field">
+        <label class="form-lbl">Bedrag excl. BTW</label>
+        <input id="fd-excl" type="text" class="form-inp" oninput="calcFdTotaal()">
+      </div>
+      <div class="fd-field">
+        <label class="form-lbl">BTW</label>
+        <input id="fd-btw" type="text" class="form-inp" oninput="calcFdTotaal()">
+      </div>
+      <div class="fd-field">
+        <label class="form-lbl">Totaal incl. BTW</label>
+        <input id="fd-totaal" type="text" class="form-inp fd-readonly" readonly tabindex="-1">
+      </div>
+    </div>
+    <div class="fd-footer">
+      <button class="btn btn-ghost" onclick="closeFactuurDialog()">Annuleren</button>
+      <button class="btn-save" onclick="submitFactuurDialog()">OK</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -144,6 +224,8 @@ let nwZsCoFactor  = parseFloat(sessionStorage.getItem('nw_zs_co_factor')) || 0.2
 let nwFactLines   = { a: [], b: [] };
 let nwIsOPSplit   = false;
 let nwSavedFactLines = null, nwFactLinesFresh = null, nwFactConflict = false;
+let nwDossierFacturen = [];
+let _fdCallback = null;
 
 const MO_ORDER = [
   'Gehuwd/GP zonder kinderen','Gehuwd/GP met kinderen',
@@ -160,6 +242,8 @@ const RECHTBANK_ROWS = new Set([
 
 // ── Helpers ──
 function fmtMoney(v){return new Intl.NumberFormat('nl-NL',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);}
+// Parse Dutch-formatted numbers: remove thousands separator (.) first, then swap decimal comma to dot
+function parseDutch(s){return parseFloat((s||'').replace(/\./g,'').replace(',','.'))||0;}
 function tryParseJSON(v){try{return JSON.parse(v)||{};}catch{return{};}}
 function formatAmount(v){if(v==null||v==='')return'—';const n=parseFloat(v);if(isNaN(n))return v;return new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(n);}
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);}
@@ -168,8 +252,13 @@ async function signOut(){await db.auth.signOut();window.location.href='index.htm
 function goToDetailsTab(){
   sessionStorage.setItem('nw_zs_factor',    nwZsFactor);
   sessionStorage.setItem('nw_zs_co_factor', nwZsCoFactor);
-  const id = nwEditId ? '?id='+nwEditId : '';
-  window.location.href = 'factuur-details.html' + id;
+  if(nwEditId){
+    window.location.href = 'factuur-details.html?id='+nwEditId;
+  } else if(nwDossierData?.id){
+    window.location.href = 'factuur-details.html?dossier_id='+nwDossierData.id;
+  } else {
+    window.location.href = 'factuur-details.html';
+  }
 }
 
 // ── Data loading ──
@@ -215,13 +304,54 @@ async function loadAllData(factuur){
   // Restore diensten state
   if(savedR.diensten&&Array.isArray(savedR.diensten)){
     applySavedDiensten(savedR.diensten);
-    nwFactLines = savedR.factuur_lines || { a: [], b: [] };
-    // Re-compute to get fresh nwFactLines if not saved
-    if(!savedR.factuur_lines) computeNwFactLines();
+    // Refresh advocaat/griffie from the current MO period — saved values may be stale
+    // if the period was changed in Details after the factuur was first created.
+    const _info=tryParseJSON(nwDossierData.info_data);
+    const _heeftRb=((_info._dienstverlening)||{}).rechtbank==='Ja';
+    nwMoRows.forEach(row=>{
+      if(row.checked&&_heeftRb&&RECHTBANK_ROWS.has(row.omschrijving)){row.advocaat=nwAdvocaatBedrag;row.griffie=nwMoGriffekosten;}
+      else{row.advocaat=0;row.griffie=0;}
+    });
+    computeNwFactLines();
   } else {
     pickNwDiensten();
     computeNwFactLines();
   }
+}
+
+// Load calculations for a dossier directly (no existing factuur — "dossier_id" mode)
+async function loadAllDataFromDossier(dossierId){
+  nwEditId=null;nwRvrVergoeding=0;nwCoMediation=0;nwSavedFactLines=null;
+  const{data:dos}=await db.from('dossiers')
+    .select('id,klant,info_data,toevoeging_a,toevoeging_b,bevestigd_a,bevestigd_b,eigen_bijdrage_a,eigen_bijdrage_b')
+    .eq('id',dossierId).single();
+  if(!dos){showToast('Dossier niet gevonden');return;}
+  nwDossierData=dos;
+  document.getElementById('page-title').textContent=dos.klant||'Factuur';
+  const{data:moP}=await db.from('mo_bedragen').select('geldig_van,geldig_tot').order('geldig_tot',{ascending:false});
+  const seen={};const moPeriods=[];
+  (moP||[]).forEach(r=>{const k=r.geldig_van+'|'+r.geldig_tot;if(!seen[k]){seen[k]=true;moPeriods.push({van:r.geldig_van,tot:r.geldig_tot});}});
+  nwEbHoog=0;nwEbLaag=0;nwGriffekosten=0;
+  const{data:allEbRows}=await db.from('eigen_bijdragen').select('geldig_van,geldig_tot').order('geldig_tot',{ascending:false});
+  const _seenEb={};const ebPeriods=[];
+  (allEbRows||[]).forEach(r=>{const k=r.geldig_van+'|'+r.geldig_tot;if(!_seenEb[k]){_seenEb[k]=true;ebPeriods.push({van:r.geldig_van,tot:r.geldig_tot});}});
+  const _bev=nwDossierData.bevestigd_a||nwDossierData.bevestigd_b;
+  const ebPeriod=ebPeriods.length?(_bev?(ebPeriods.find(p=>p.van<=_bev&&_bev<=p.tot)||ebPeriods[0]):ebPeriods[0]):null;
+  if(ebPeriod){
+    const{data:ebD}=await db.from('eigen_bijdragen').select('soort,bedrag_incl_btw').eq('geldig_van',ebPeriod.van).eq('geldig_tot',ebPeriod.tot);
+    (ebD||[]).forEach(r=>{if(r.soort==='Hoog')nwEbHoog=parseFloat(r.bedrag_incl_btw)||0;if(r.soort==='Laag')nwEbLaag=parseFloat(r.bedrag_incl_btw)||0;});
+    const{data:gkD}=await db.from('griffiekosten').select('bedrag').eq('geldig_van',ebPeriod.van).eq('geldig_tot',ebPeriod.tot).maybeSingle();
+    if(gkD)nwGriffekosten=parseFloat(gkD.bedrag)||0;
+    const{data:rvrD}=await db.from('rvr_tarieven').select('*').eq('geldig_van',ebPeriod.van).eq('geldig_tot',ebPeriod.tot);
+    nwRvrTariefRows=rvrD||[];
+    if(nwRvrTariefRows.length&&nwRvrTariefRows[0].per_punt!=null){nwRvrPerPunt=parseFloat(nwRvrTariefRows[0].per_punt)||0;nwRvrAdmKosten=parseFloat(nwRvrTariefRows[0].adm)||0;}
+  }
+  // Use period from sessionStorage (set by Details tab) if available, else latest
+  const _sessionPeriod=sessionStorage.getItem('period_mo_'+dossierId);
+  const periodToLoad=_sessionPeriod||(moPeriods.length?moPeriods[0].van+'|'+moPeriods[0].tot:null);
+  if(periodToLoad)await loadNwMoBedragen(periodToLoad); else nwMoRows=[];
+  pickNwDiensten();
+  computeNwFactLines();
 }
 
 async function loadNwMoBedragen(periodKey){
@@ -329,12 +459,145 @@ function equalizeOmschrijvingWidth(){
   ['fact-col-left','fact-col-right'].forEach(colId=>{
     const col=document.getElementById(colId);if(!col)return;
     const tables=[...col.querySelectorAll('.fact-tbl')];if(!tables.length)return;
-    const colCount=4;
+    const colCount=5;
     tables.forEach(tbl=>tbl.querySelectorAll('th,td').forEach(c=>c.style.minWidth=''));
     const maxW=new Array(colCount).fill(0);
-    tables.forEach(tbl=>{tbl.querySelectorAll('tr').forEach(tr=>{[...tr.querySelectorAll('th,td')].forEach((c,i)=>{if(i<colCount)maxW[i]=Math.max(maxW[i],c.offsetWidth);});});});
-    tables.forEach(tbl=>{tbl.querySelectorAll('tr').forEach(tr=>{[...tr.querySelectorAll('th,td')].forEach((c,i)=>{if(i<colCount)c.style.minWidth=maxW[i]+'px';});});});
+    tables.forEach(tbl=>{tbl.querySelectorAll('tr').forEach(tr=>{[...tr.querySelectorAll('th,td')].forEach((c,i)=>{if(i<colCount&&c.colSpan===1)maxW[i]=Math.max(maxW[i],c.offsetWidth);});});});
+    tables.forEach(tbl=>{tbl.querySelectorAll('tr').forEach(tr=>{[...tr.querySelectorAll('th,td')].forEach((c,i)=>{if(i<colCount&&c.colSpan===1)c.style.minWidth=maxW[i]+'px';});});});
   });
+}
+
+// ── Factuur koppelen ──
+function getDossierFactuur(title){
+  // Exclude the main factuur being viewed (nwEditId) to prevent accidentally matching/overwriting it
+  return nwDossierFacturen.find(f=>f.id!==nwEditId&&f.regels?.sub_label===title)||null;
+}
+async function loadDossierFacturen(){
+  if(!nwDossierData)return;
+  const{data}=await db.from('facturen').select('*').eq('dossier_id',nwDossierData.id);
+  nwDossierFacturen=data||[];
+}
+function calcFdTotaal(){
+  const excl=parseDutch(document.getElementById('fd-excl').value);
+  const btw =parseDutch(document.getElementById('fd-btw').value);
+  document.getElementById('fd-totaal').value=fmtMoney(excl+btw);
+}
+function openFactuurDialog(tableTitle,getAmounts,existingFactuur){
+  _fdCallback=async(nr,datum,verval,exclStr,btwStr)=>{
+    const calcAmts=getAmounts();
+    const exclVal=parseDutch(exclStr);
+    const btwVal =parseDutch(btwStr);
+    const amount =Math.round((exclVal+btwVal)*100)/100;
+    const payload={
+      klant:nwDossierData.klant,dossier_id:nwDossierData.id,
+      factuurnummer:nr||null,factuurdatum:datum||null,vervaldatum:verval||null,
+      bedrag:amount,
+      status:existingFactuur?(existingFactuur.status||'open'):'open',
+      regels:{
+        sub_label:tableTitle,
+        bedrag_incl:amount,
+        bedrag_excl:exclVal,
+        bedrag_btw:btwVal,
+        bedrag_incl_calc:Math.round(calcAmts.incl*100)/100,
+      },
+    };
+    if(existingFactuur){
+      const{data,error}=await db.from('facturen').update(payload).eq('id',existingFactuur.id).select().single();
+      if(error){showToast('Opslaan mislukt: '+error.message);return;}
+      const idx=nwDossierFacturen.findIndex(f=>f.id===existingFactuur.id);
+      if(idx>=0)nwDossierFacturen[idx]=data;
+      showToast('Factuur bijgewerkt');
+    }else{
+      const{data,error}=await db.from('facturen').insert(payload).select().single();
+      if(error){showToast('Opslaan mislukt: '+error.message);return;}
+      nwDossierFacturen.push(data);
+      showToast('Factuur aangemaakt');
+    }
+    document.getElementById('factuur-dialog').classList.remove('open');_fdCallback=null;
+    rebuildTables();
+  };
+  // Pre-fill amounts: prefer stored excl/btw on existing factuur, else use calculated
+  const calcAmts=getAmounts();
+  const fillExcl=existingFactuur?.regels?.bedrag_excl!=null?existingFactuur.regels.bedrag_excl:calcAmts.excl;
+  const fillBtw =existingFactuur?.regels?.bedrag_btw !=null?existingFactuur.regels.bedrag_btw :(calcAmts.incl-calcAmts.excl);
+  document.getElementById('fd-nr').value=existingFactuur?.factuurnummer||'';
+  document.getElementById('fd-datum').value=existingFactuur?.factuurdatum||'';
+  document.getElementById('fd-verval').value=existingFactuur?.vervaldatum||'';
+  document.getElementById('fd-excl').value=fmtMoney(fillExcl);
+  document.getElementById('fd-btw').value=fmtMoney(fillBtw);
+  document.getElementById('fd-totaal').value=fmtMoney(fillExcl+fillBtw);
+  document.getElementById('fd-title').textContent=(existingFactuur?'Update factuur':'Factuur toevoegen')+' — '+tableTitle;
+  document.getElementById('factuur-dialog').classList.add('open');
+  setTimeout(()=>document.getElementById('fd-nr').focus(),50);
+}
+function closeFactuurDialog(){
+  document.getElementById('factuur-dialog').classList.remove('open');_fdCallback=null;
+}
+async function submitFactuurDialog(){
+  if(!_fdCallback)return;
+  const nr    =document.getElementById('fd-nr').value.trim();
+  const datum =document.getElementById('fd-datum').value;
+  const verval=document.getElementById('fd-verval').value;
+  const excl  =document.getElementById('fd-excl').value;
+  const btw   =document.getElementById('fd-btw').value;
+  await _fdCallback(nr,datum,verval,excl,btw);
+}
+function addFactuurButton(hdr,tableTitle,getAmounts){
+  const existing=getDossierFactuur(tableTitle);
+  const currentAmt=getAmounts().incl;
+  // Don't show anything when amount is 0 (empty table) and no factuur exists
+  if(currentAmt<=0&&!existing)return;
+  const sameAmount=existing&&Math.abs((existing.bedrag||0)-currentAmt)<0.01;
+  hdr.style.display='flex';hdr.style.alignItems='center';hdr.style.justifyContent='space-between';
+  if(sameAmount){
+    const span=document.createElement('span');
+    span.style.cssText='font-size:0.70rem;font-weight:700;color:#27ae60;white-space:nowrap;margin-left:12px;text-transform:none;letter-spacing:0;';
+    span.textContent='✓ Factuur aangemaakt';
+    hdr.appendChild(span);
+  }else{
+    const btn=document.createElement('button');
+    btn.className='btn btn-ghost';
+    btn.style.cssText='font-size:0.70rem;padding:2px 10px;height:auto;line-height:1.5;white-space:nowrap;margin-left:12px;text-transform:none;letter-spacing:0;flex-shrink:0;';
+    btn.textContent=existing?'Update factuur':'Factuur toevoegen';
+    btn.addEventListener('click',()=>openFactuurDialog(tableTitle,getAmounts,existing||null));
+    hdr.appendChild(btn);
+  }
+}
+function addFactuurOverzicht(container,tableTitle,getAmounts,invertSign){
+  const factuur=getDossierFactuur(tableTitle);
+  if(!factuur)return;
+  const calcAmt=getAmounts().incl;
+  const factAmt=factuur.bedrag||0;
+  // For inkomende facturen (costs): invert so higher factuur = negative (bad)
+  // For uitgaande facturen (income): higher factuur = positive (good)
+  const diff=invertSign?(calcAmt-factAmt):(factAmt-calcAmt);
+  const hasDiff=Math.abs(diff)>0.01;
+  const div=document.createElement('div');
+  div.style.cssText='font-family:Nunito,sans-serif;font-size:0.78rem;display:flex;align-items:center;gap:14px;padding:4px 2px 10px;flex-wrap:wrap;';
+  const nrSpan=document.createElement('span');
+  if(hasDiff){
+    nrSpan.style.cssText='font-weight:800;color:#c0392b;background:#FDECEA;border-radius:4px;padding:2px 7px;white-space:nowrap;';
+    nrSpan.textContent='⚠ '+(factuur.factuurnummer||'(geen nummer)');
+  }else{
+    nrSpan.style.cssText='font-weight:700;color:var(--grey-text);white-space:nowrap;';
+    nrSpan.textContent='# '+(factuur.factuurnummer||'—');
+  }
+  div.appendChild(nrSpan);
+  const amtSpan=document.createElement('span');
+  amtSpan.style.cssText='color:var(--grey-text);font-weight:600;white-space:nowrap;';
+  amtSpan.textContent=formatAmount(factAmt);
+  div.appendChild(amtSpan);
+  if(hasDiff){
+    const calcSpan=document.createElement('span');
+    calcSpan.style.cssText='color:var(--grey);font-size:0.72rem;white-space:nowrap;';
+    calcSpan.textContent='(berekend: '+formatAmount(calcAmt)+')';
+    const diffSpan=document.createElement('span');
+    diffSpan.style.cssText='font-weight:700;color:'+(diff>0?'#27ae60':'#c0392b')+';white-space:nowrap;';
+    diffSpan.textContent='verschil '+(diff>0?'+':'')+formatAmount(diff);
+    div.appendChild(calcSpan);
+    div.appendChild(diffSpan);
+  }
+  container.appendChild(div);
 }
 
 // ── Table rendering ──
@@ -366,8 +629,9 @@ function rebuildTables(){
   const firstLeftHdr=leftCol.querySelector('.nw-sect-hdr');
   if(firstLeftHdr)firstLeftHdr.style.marginTop='0';
   if(splitInvoices)appendPersonTable(leftCol,naamB,nwFactLines.b,'b');
-  appendUitbetalingVergoedingen(leftCol);
-  appendZsVergoedingsfactuur(rightCol);
+  const uitbetaling=appendUitbetalingVergoedingen(leftCol);
+  const zsInkomen=appendZsVergoedingsfactuur(rightCol);
+  appendNettoOpbrengst(rightCol,zsInkomen,uitbetaling);
   equalizeOmschrijvingWidth();
 }
 
@@ -384,10 +648,12 @@ function appendZsVergoedingsfactuur(container){
   const typeKlant=nwGetRvrTypeKlant();const bothToev=toevA&&toevB;
   const subType=bothToev?'dubbele toevoeging':'enkele toevoeging';
   const rvrFull=nwCalcRvrBedrag(typeKlant,subType);const rvrPerP=bothToev?rvrFull/2:rvrFull;
+  // Net uitbetaling = RvR per person minus eigen bijdrage (matches uitbetaling table)
+  const uitbA=toevA?rvrPerP-ebAmtA:0,uitbB=toevB?rvrPerP-ebAmtB:0;
   let feeLines=[],basis=0;
   if(nToev===0){basis=dienstIncl;feeLines=[{label:'Diensten',bedrag:dienstIncl}];}
-  else if(nToev===1){const naam=toevA?naamA:naamB;const halfDienst=dienstIncl/2;basis=halfDienst+rvrPerP;feeLines=[{label:'50% × Diensten',bedrag:halfDienst},{label:`RvR vergoeding ${naam}`,bedrag:rvrPerP}];}
-  else{basis=rvrPerP+rvrPerP;feeLines=[{label:`RvR vergoeding ${naamA}`,bedrag:rvrPerP},{label:`RvR vergoeding ${naamB}`,bedrag:rvrPerP}];}
+  else if(nToev===1){const naam=toevA?naamA:naamB;const uitb=toevA?uitbA:uitbB;const halfDienst=dienstIncl/2;basis=halfDienst+uitb;feeLines=[{label:'50% × Diensten',bedrag:halfDienst},{label:`RvR uitbetaling ${naam}`,bedrag:uitb}];}
+  else{basis=uitbA+uitbB;feeLines=[{label:`RvR uitbetaling ${naamA}`,bedrag:uitbA},{label:`RvR uitbetaling ${naamB}`,bedrag:uitbB}];}
   const feeIncl=basis*nwZsFactor,feeExcl=feeIncl/1.21;
   const adIncl=checkedAll.reduce((s,r)=>s+(r.advocaat||0),0),adExcl=adIncl/(1+(nwAdvocaatBtw||21)/100);
   const gkA=nwFactLines.a.filter(l=>l.omschrijving==='Griffiekosten').reduce((s,l)=>s+(l.bedrag||0),0);
@@ -396,16 +662,22 @@ function appendZsVergoedingsfactuur(container){
   const coA=toevA?nwFactLines.a.filter(l=>l.omschrijving==='Co-mediation').reduce((s,l)=>s+(l.bedrag||0),0):0;
   const coB=toevB?nwFactLines.b.filter(l=>l.omschrijving==='Co-mediation').reduce((s,l)=>s+(l.bedrag||0),0):0;
   const coFee=(coA+coB)*nwZsCoFactor,coExcl=coFee/1.21;
-  if(feeIncl<=0&&gkIncl<=0&&adIncl<=0&&coFee<=0)return;
-  const hdr=document.createElement('div');hdr.className='nw-sect-hdr';hdr.style.marginTop='0';hdr.textContent='Vergoedingsfactuur Zorgzaam Scheiden';container.appendChild(hdr);
+  if(feeIncl<=0&&gkIncl<=0&&adIncl<=0&&coFee<=0)return {incl:0,excl:0};
+  const zsTotal0=feeIncl+(gkIncl>0?gkIncl:0)+(adIncl>0?adIncl:0)+(coFee>0?coFee:0);
+  const zsExcl0=feeExcl+(gkIncl>0?gkIncl:0)+(adIncl>0?adExcl:0)+(coFee>0?coExcl:0);
+  function getZsAmounts(){return{incl:zsTotal0,excl:zsExcl0};}
+  const hdr=document.createElement('div');hdr.className='nw-sect-hdr';hdr.style.marginTop='0';
+  const hdrTitle=document.createElement('span');hdrTitle.textContent='Vergoedingsfactuur Zorgzaam Scheiden';hdr.appendChild(hdrTitle);
+  addFactuurButton(hdr,'Vergoedingsfactuur Zorgzaam Scheiden',getZsAmounts);
+  container.appendChild(hdr);
   const tbl=document.createElement('table');tbl.className='fact-tbl';tbl.style.cssText='margin-bottom:8px;white-space:nowrap;';
   const thead=document.createElement('thead');const hRow=document.createElement('tr');
-  [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
+  [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['Subtotaal',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
   thead.appendChild(hRow);tbl.appendChild(thead);
   const tbody=document.createElement('tbody');let totExcl=0,totIncl=0;
-  function addHelper(label,bedrag){const excl=bedrag/1.21;const btwAmt=bedrag-excl;const tr=document.createElement('tr');const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.74rem;color:var(--grey);font-weight:600;';tdN.textContent=label;const s='text-align:right;font-size:0.74rem;color:var(--grey);font-weight:600;';const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=bedrag!==0?(excl<0?'− '+formatAmount(-excl):formatAmount(excl)):'';const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=bedrag!==0?(btwAmt<0?'− '+formatAmount(-btwAmt):formatAmount(btwAmt)):'';const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=bedrag<0?'− '+formatAmount(-bedrag):formatAmount(bedrag);tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tbody.appendChild(tr);}
-  function addSubtotal(label,bedrag){const excl=bedrag/1.21;const btwAmt=bedrag-excl;const tr=document.createElement('tr');const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';tdN.textContent=label;const s='text-align:right;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=formatAmount(excl);const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=formatAmount(btwAmt);const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=formatAmount(bedrag);tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tbody.appendChild(tr);}
-  function addRow(label,incl,excl){const btw=incl-excl;totExcl+=excl;totIncl+=incl;const tr=document.createElement('tr');[{v:label,cls:'td-l'},{v:formatAmount(excl)},{v:btw>0.005?formatAmount(btw):'0%'},{v:formatAmount(incl),bold:true}].forEach(({v,cls,bold})=>{const td=document.createElement('td');if(cls)td.className=cls;if(bold)td.style.fontWeight='800';td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);}
+  function addHelper(label,bedrag){const excl=bedrag/1.21;const btwAmt=bedrag-excl;const tr=document.createElement('tr');const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.74rem;color:var(--grey);font-weight:600;';tdN.textContent=label;const s='text-align:right;font-size:0.74rem;color:var(--grey);font-weight:600;';const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=bedrag!==0?(excl<0?'− '+formatAmount(-excl):formatAmount(excl)):'';const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=bedrag!==0?(btwAmt<0?'− '+formatAmount(-btwAmt):formatAmount(btwAmt)):'';const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=bedrag<0?'− '+formatAmount(-bedrag):formatAmount(bedrag);const tdT=document.createElement('td');tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tr.appendChild(tdT);tbody.appendChild(tr);}
+  function addSubtotal(label,bedrag){const excl=bedrag/1.21;const btwAmt=bedrag-excl;const tr=document.createElement('tr');const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';tdN.textContent=label;const s='text-align:right;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=formatAmount(excl);const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=formatAmount(btwAmt);const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=formatAmount(bedrag);const tdT=document.createElement('td');tdT.style.cssText=s;tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tr.appendChild(tdT);tbody.appendChild(tr);}
+  function addRow(label,incl,excl){const btw=incl-excl;totExcl+=excl;totIncl+=incl;const tr=document.createElement('tr');[{v:label,cls:'td-l'},{v:formatAmount(excl)},{v:btw>0.005?formatAmount(btw):'0%'},{v:formatAmount(incl),bold:true},{v:formatAmount(incl),bold:true}].forEach(({v,cls,bold})=>{const td=document.createElement('td');if(cls)td.className=cls;if(bold)td.style.fontWeight='800';td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);}
   feeLines.forEach(l=>addHelper(l.label,l.bedrag));
   if(nToev>0)addSubtotal('Basis',basis);
   addRow(`Dossierafhankelijke fee (${Math.round(nwZsFactor*100)}%)`,feeIncl,feeExcl);
@@ -414,16 +686,23 @@ function appendZsVergoedingsfactuur(container){
   if(coFee>0)addRow('Co-mediation fee',coFee,coExcl);
   tbl.appendChild(tbody);
   const totBtw=totIncl-totExcl;const tfoot=document.createElement('tfoot');const fRow=document.createElement('tr');
-  [{v:'Totaal',style:'text-align:right;font-size:0.78rem;font-weight:700;color:var(--grey);'},{v:formatAmount(totExcl),style:'font-weight:800;'},{v:totBtw>0.005?formatAmount(totBtw):'0%',style:'font-weight:800;'},{v:formatAmount(totIncl),style:'font-weight:800;'}].forEach(({v,style})=>{const td=document.createElement('td');td.style.cssText=(style||'')+'padding:6px 8px;border-top:2px solid var(--orange);';td.textContent=v;fRow.appendChild(td);});
-  tfoot.appendChild(fRow);tbl.appendChild(tfoot);container.appendChild(tbl);
+  [{v:'Totaal',style:'text-align:right;font-size:0.78rem;font-weight:700;color:var(--grey);'},{v:formatAmount(totExcl),style:'font-weight:800;'},{v:totBtw>0.005?formatAmount(totBtw):'0%',style:'font-weight:800;'},{v:'',style:''},{v:formatAmount(totIncl),style:'font-weight:800;'}].forEach(({v,style})=>{const td=document.createElement('td');td.style.cssText=(style||'')+'padding:6px 8px;border-top:2px solid var(--orange);';td.textContent=v;fRow.appendChild(td);});
+  tfoot.appendChild(fRow);tbl.appendChild(tfoot);
+  container.appendChild(tbl);
+  addFactuurOverzicht(container,'Vergoedingsfactuur Zorgzaam Scheiden',getZsAmounts,true);
+  return {incl:totIncl,excl:totExcl};
 }
 
 function appendPersonTable(container,naam,lines,personKey){
-  const hdr=document.createElement('div');hdr.className='nw-sect-hdr';hdr.style.marginTop='12px';hdr.textContent=naam;container.appendChild(hdr);
-  if(!lines.length){const p=document.createElement('p');p.style.cssText='font-size:0.78rem;color:var(--grey);padding:4px 2px 12px;font-family:Nunito,sans-serif;';p.textContent='—';container.appendChild(p);return;}
+  const hdr=document.createElement('div');hdr.className='nw-sect-hdr';hdr.style.marginTop='36px';
+  const hdrTitle=document.createElement('span');hdrTitle.textContent=naam;hdr.appendChild(hdrTitle);
+  container.appendChild(hdr);
+  function getPersonAmounts(){let totIncl=0,totExcl=0;nwFactLines[personKey].forEach(l=>{const b=l.btw??21;const incl=l.bedrag||0;totIncl+=incl;totExcl+=incl/(1+b/100);});return{incl:totIncl,excl:totExcl};}
+  addFactuurButton(hdr,naam,getPersonAmounts);
+  if(!lines.length){const p=document.createElement('p');p.style.cssText='font-size:0.78rem;color:var(--grey);padding:4px 2px 12px;font-family:Nunito,sans-serif;';p.textContent='—';container.appendChild(p);addFactuurOverzicht(container,naam,getPersonAmounts);return;}
   const tbl=document.createElement('table');tbl.className='fact-tbl';tbl.style.cssText='margin-bottom:8px;white-space:nowrap;';
   const thead=document.createElement('thead');const hRow=document.createElement('tr');
-  [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
+  [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
   thead.appendChild(hRow);tbl.appendChild(thead);
   const tbody=document.createElement('tbody');
   const totalTd=document.createElement('td');totalTd.style.cssText='text-align:right;font-weight:800;';
@@ -436,23 +715,27 @@ function appendPersonTable(container,naam,lines,personKey){
     const tdN=document.createElement('td');tdN.className='td-l';tdN.textContent=line.omschrijving;
     const tdExcl=document.createElement('td');tdExcl.style.textAlign='right';tdExcl.dataset.role='excl';tdExcl.textContent=formatAmount(excl);
     const tdBtw=document.createElement('td');tdBtw.style.textAlign='right';tdBtw.style.color='var(--grey)';tdBtw.textContent=btw===0?'0%':formatAmount(btwAmt);
+    const tdBlank=document.createElement('td');// spacer aligns with Subtotaal column
     const tdTot=document.createElement('td');
     const inp=document.createElement('input');inp.type='text';inp.className='fact-inp-sm';inp.value=fmtMoney(line.bedrag);
-    inp.addEventListener('change',()=>{const v=parseFloat(inp.value.replace(',','.'))||0;inp.value=fmtMoney(v);nwFactLines[personKey][idx].bedrag=v;const newExcl=v/(1+btw/100);tdExcl.textContent=formatAmount(newExcl);tdBtw.textContent=btw===0?'0%':formatAmount(v-newExcl);recalcTotal();});
-    tdTot.appendChild(inp);tr.appendChild(tdN);tr.appendChild(tdExcl);tr.appendChild(tdBtw);tr.appendChild(tdTot);tbody.appendChild(tr);
+    inp.addEventListener('change',()=>{const v=parseDutch(inp.value);inp.value=fmtMoney(v);nwFactLines[personKey][idx].bedrag=v;const newExcl=v/(1+btw/100);tdExcl.textContent=formatAmount(newExcl);tdBtw.textContent=btw===0?'0%':formatAmount(v-newExcl);recalcTotal();});
+    tdTot.appendChild(inp);tr.appendChild(tdN);tr.appendChild(tdExcl);tr.appendChild(tdBtw);tr.appendChild(tdBlank);tr.appendChild(tdTot);tbody.appendChild(tr);
   });
   tbl.appendChild(tbody);
   const tfoot=document.createElement('tfoot');const fRow=document.createElement('tr');
   const tdLbl=document.createElement('td');tdLbl.style.cssText='text-align:right;font-size:0.78rem;font-weight:700;color:var(--grey);';tdLbl.textContent='Totaal';
-  fRow.appendChild(tdLbl);fRow.appendChild(exclTotalTd);fRow.appendChild(btwTotalTd);fRow.appendChild(totalTd);
-  tfoot.appendChild(fRow);tbl.appendChild(tfoot);recalcTotal();container.appendChild(tbl);
+  const tdFootBlank=document.createElement('td');
+  fRow.appendChild(tdLbl);fRow.appendChild(exclTotalTd);fRow.appendChild(btwTotalTd);fRow.appendChild(tdFootBlank);fRow.appendChild(totalTd);
+  tfoot.appendChild(fRow);tbl.appendChild(tfoot);recalcTotal();
+  container.appendChild(tbl);
+  addFactuurOverzicht(container,naam,getPersonAmounts);
 }
 
 function appendUitbetalingVergoedingen(container){
   if(!nwDossierData)return;
   const _zsInfo=tryParseJSON(nwDossierData.info_data);const _zsKlant=_zsInfo._klant||{};
   const toevA=nwDossierData.toevoeging_a===1,toevB=nwDossierData.toevoeging_b===1;
-  const nToev=(toevA?1:0)+(toevB?1:0);if(nToev===0)return;
+  const nToev=(toevA?1:0)+(toevB?1:0);if(nToev===0)return {incl:0,excl:0};
   const naamA=_zsKlant.naam_a||'Persoon A',naamB=_zsKlant.naam_b||'Persoon B';
   const ebSoortA=(nwDossierData.eigen_bijdrage_a||'').toLowerCase(),ebSoortB=(nwDossierData.eigen_bijdrage_b||'').toLowerCase();
   const ebAmtA=ebSoortA==='hoog'?nwEbHoog:ebSoortA==='laag'?nwEbLaag:0;
@@ -462,27 +745,145 @@ function appendUitbetalingVergoedingen(container){
   const rvrFull=nwCalcRvrBedrag(typeKlant,subType);const rvrPerP=bothToev?rvrFull/2:rvrFull;
   const uitbA=toevA?rvrPerP-ebAmtA:0,uitbB=toevB?rvrPerP-ebAmtB:0;
   const checkedAll=nwMoRows.filter(r=>r.checked);
-  const dienstIncl=checkedAll.reduce((s,r)=>s+(r.invoiceBedrag||0),0);
+  const dienstInclFull=checkedAll.reduce((s,r)=>s+(r.invoiceBedrag||0),0);
+  // With 1 toevoeging only 50% of diensten flow through uitbetaling (other 50% billed to non-toevoeging person)
+  const dienstIncl=nToev===1?dienstInclFull/2:dienstInclFull;
   const coSubtot=nToev===1?(dienstIncl+(toevA?uitbA:uitbB)):(uitbA+uitbB);
   const coZsFee=coSubtot*nwZsFactor,coBasis=coSubtot-coZsFee;
   const coKosten=coBasis*nwZsCoFactor,coKostenExcl=coKosten/1.21;
-  const hdr=document.createElement('div');hdr.className='nw-sect-hdr';hdr.style.marginTop='12px';hdr.textContent='Uitbetaling vergoedingen toevoegingen';container.appendChild(hdr);
+  // Totaal column = RvR uitbetaling(s) − co-mediation costs (Subtotaal is internal only)
+  const uitbTotaal=uitbA+uitbB;
+  const netIncl0=uitbTotaal-coKosten;
+  const netExcl0=uitbTotaal/1.21-coKostenExcl;
+  function getUitbetalingAmounts(){return{incl:netIncl0,excl:netExcl0};}
+  const hdr=document.createElement('div');hdr.className='nw-sect-hdr';hdr.style.marginTop='36px';
+  const hdrTitle=document.createElement('span');hdrTitle.textContent='Uitbetaling vergoedingen toevoegingen';hdr.appendChild(hdrTitle);
+  addFactuurButton(hdr,'Uitbetaling vergoedingen toevoegingen',getUitbetalingAmounts);
+  container.appendChild(hdr);
   const tbl=document.createElement('table');tbl.className='fact-tbl';tbl.style.cssText='margin-bottom:8px;white-space:nowrap;';
   const thead=document.createElement('thead');const hRow=document.createElement('tr');
-  [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
+  [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['Subtotaal',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
   thead.appendChild(hRow);tbl.appendChild(thead);
   const tbody=document.createElement('tbody');
-  function addH(label,bedrag){const excl=bedrag/1.21;const btwAmt=bedrag-excl;const tr=document.createElement('tr');const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.74rem;color:var(--grey);font-weight:600;';tdN.textContent=label;const s='text-align:right;font-size:0.74rem;color:var(--grey);font-weight:600;';const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=bedrag!==0?(excl<0?'− '+formatAmount(-excl):formatAmount(excl)):'';const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=bedrag!==0?(btwAmt<0?'− '+formatAmount(-btwAmt):formatAmount(btwAmt)):'';const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=bedrag<0?'− '+formatAmount(-bedrag):formatAmount(bedrag);tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tbody.appendChild(tr);}
-  function addS(label,bedrag){const excl=bedrag/1.21;const btwAmt=bedrag-excl;const tr=document.createElement('tr');const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';tdN.textContent=label;const s='text-align:right;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=formatAmount(excl);const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=formatAmount(btwAmt);const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=formatAmount(bedrag);tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tbody.appendChild(tr);}
-  function addR(label,incl,excl){const btw=incl-excl;const tr=document.createElement('tr');[{v:label,cls:'td-l'},{v:formatAmount(excl)},{v:btw>0.005?formatAmount(btw):'0%'},{v:formatAmount(incl),bold:true}].forEach(({v,cls,bold})=>{const td=document.createElement('td');if(cls)td.className=cls;if(bold)td.style.fontWeight='800';td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);}
-  if(toevA){addH(`RvR vergoeding ${naamA}`,rvrPerP);addH(`− Eigen bijdrage ${naamA}`,-ebAmtA);addS(`RvR uitbetaling ${naamA}`,uitbA);}
-  if(toevB){addH(`RvR vergoeding ${naamB}`,rvrPerP);addH(`− Eigen bijdrage ${naamB}`,-ebAmtB);addS(`RvR uitbetaling ${naamB}`,uitbB);}
+  function addH(label,bedrag){
+    const excl=bedrag/1.21;const btwAmt=bedrag-excl;
+    const isNeg=bedrag<0;const isAdd=bedrag>0&&label.startsWith('+');
+    const clr=isNeg?'#c0392b':isAdd?'#27ae60':'var(--grey)';
+    const indent=(isNeg||isAdd)?'30px':'18px';
+    const tr=document.createElement('tr');
+    const tdN=document.createElement('td');tdN.className='td-l';
+    tdN.style.cssText=`padding-left:${indent};font-size:0.74rem;color:${clr};font-weight:600;`;tdN.textContent=label;
+    const s=`text-align:right;font-size:0.74rem;color:${clr};font-weight:600;`;
+    const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=bedrag!==0?(excl<0?'− '+formatAmount(-excl):formatAmount(excl)):'';
+    const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=bedrag!==0?(btwAmt<0?'− '+formatAmount(-btwAmt):formatAmount(btwAmt)):'';
+    const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=bedrag<0?'− '+formatAmount(-bedrag):formatAmount(bedrag);
+    const tdT=document.createElement('td');// empty Totaal cell
+    tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tr.appendChild(tdT);tbody.appendChild(tr);
+  }
+  function addS(label,bedrag,totaalVal){
+    const excl=bedrag/1.21;const btwAmt=bedrag-excl;
+    const tr=document.createElement('tr');
+    const tdN=document.createElement('td');tdN.className='td-l';tdN.style.cssText='padding-left:18px;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';tdN.textContent=label;
+    const s='text-align:right;font-size:0.76rem;font-weight:800;border-top:1px solid var(--grey-rule);';
+    const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=formatAmount(excl);
+    const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=formatAmount(btwAmt);
+    const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=formatAmount(bedrag);
+    const tdT=document.createElement('td');tdT.style.cssText=s;
+    if(totaalVal!=null)tdT.textContent=formatAmount(totaalVal);
+    tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tr.appendChild(tdT);tbody.appendChild(tr);
+  }
+  function addR(label,incl,excl,totaalVal){
+    const btw=incl-excl;const tr=document.createElement('tr');
+    [{v:label,cls:'td-l'},{v:formatAmount(excl)},{v:btw>0.005?formatAmount(btw):'0%'},{v:formatAmount(incl),bold:true},{v:null}].forEach(({v,cls,bold},i)=>{
+      const td=document.createElement('td');if(cls)td.className=cls;if(bold)td.style.fontWeight='800';
+      if(i===4&&totaalVal!=null){td.style.cssText='text-align:right;font-weight:800;';td.style.color=totaalVal<0?'#c0392b':'inherit';td.textContent=totaalVal<0?'− '+formatAmount(-totaalVal):formatAmount(totaalVal);}
+      else if(v!=null)td.textContent=v;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  if(toevA){addH(`RvR vergoeding ${naamA}`,rvrPerP);addH(`− Eigen bijdrage ${naamA}`,-ebAmtA);addS(`RvR uitbetaling ${naamA}`,uitbA,uitbA);}
+  if(toevB){addH(`RvR vergoeding ${naamB}`,rvrPerP);addH(`− Eigen bijdrage ${naamB}`,-ebAmtB);addS(`RvR uitbetaling ${naamB}`,uitbB,uitbB);}
   if(nToev===1){const naam=toevA?naamA:naamB;const uitb=toevA?uitbA:uitbB;addH('Diensten (excl. advocaat & griffie)',dienstIncl);addH(`+ RvR uitbetaling ${naam}`,uitb);addS('Subtotaal',coSubtot);}
   else{addH(`RvR uitbetaling ${naamA}`,uitbA);addH(`+ RvR uitbetaling ${naamB}`,uitbB);addS('Subtotaal uitbetalingen',coSubtot);}
   addH(`− Dossierafhankelijke fee (${Math.round(nwZsFactor*100)}%)`,-coZsFee);
   addS('Basis co-mediation',coBasis);
-  addR(`Kosten Co-mediation (${Math.round(nwZsCoFactor*100)}%)`,coKosten,coKostenExcl);
-  tbl.appendChild(tbody);container.appendChild(tbl);
+  addR(`Kosten Co-mediation (${Math.round(nwZsCoFactor*100)}%)`,coKosten,coKostenExcl,-coKosten);
+  tbl.appendChild(tbody);
+  // Totaal = RvR uitbetaling(en) − kosten co-mediation (Subtotaal is not part of this)
+  const netIncl=uitbTotaal-coKosten;
+  const netExcl=uitbTotaal/1.21-coKostenExcl;
+  const netBtw=netIncl-netExcl;
+  const tfoot=document.createElement('tfoot');
+  const fRow=document.createElement('tr');
+  [{v:'Totaal',cls:'td-l'},{v:formatAmount(netExcl)},{v:formatAmount(netBtw)},{v:''},{v:formatAmount(netIncl)}].forEach(({v,cls})=>{
+    const td=document.createElement('td');if(cls)td.className=cls;
+    td.style.fontWeight='800';td.textContent=v;fRow.appendChild(td);
+  });
+  tfoot.appendChild(fRow);tbl.appendChild(tfoot);
+  container.appendChild(tbl);
+  addFactuurOverzicht(container,'Uitbetaling vergoedingen toevoegingen',getUitbetalingAmounts);
+  return {incl:netIncl,excl:netExcl};
+}
+
+// ── Netto opbrengst klanten ──
+function appendNettoOpbrengst(container,zsInkomen,uitbetaling){
+  const info=tryParseJSON(nwDossierData.info_data);const klant=info._klant||{};
+  const naamA=klant.naam_a||'Persoon A',naamB=klant.naam_b||'Persoon B';
+  const toevA=nwDossierData.toevoeging_a===1,toevB=nwDossierData.toevoeging_b===1;
+  const splitInvoices=toevA||toevB||nwIsOPSplit;
+
+  function personTotals(lines){
+    return (lines||[]).reduce((s,l)=>{const b=l.btw??21;const incl=l.bedrag||0;const excl=incl/(1+b/100);return{incl:s.incl+incl,excl:s.excl+excl};},{incl:0,excl:0});
+  }
+  const tA=personTotals(nwFactLines.a),tB=personTotals(nwFactLines.b);
+  const zsI=zsInkomen||{incl:0,excl:0},uitb=uitbetaling||{incl:0,excl:0};
+
+  const nettoIncl=tA.incl+tB.incl+uitb.incl-zsI.incl;
+  const nettoExcl=tA.excl+tB.excl+uitb.excl-zsI.excl;
+  const nettoBtw=nettoIncl-nettoExcl;
+
+  const wrap=document.createElement('div');
+  wrap.style.cssText='background:var(--orange-soft);border-radius:6px;padding:14px 16px;margin-top:40px;';
+
+  const title=document.createElement('div');
+  title.style.cssText='font-family:Nunito,sans-serif;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--orange-dark);margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid var(--orange);';
+  title.textContent='Totaal';wrap.appendChild(title);
+
+  const tbl=document.createElement('table');tbl.style.cssText='white-space:nowrap;border-collapse:collapse;width:100%;font-family:Nunito,sans-serif;font-size:0.82rem;';
+  const thead=document.createElement('thead');
+  const hRow=document.createElement('tr');
+  [['Omschrijving','left'],['Bedrag excl BTW','right'],['BTW','right'],['Totaal','right']].forEach(([txt,align])=>{
+    const th=document.createElement('th');th.style.cssText=`padding:2px ${align==='right'?'0':'12px'} 6px ${align==='right'?'12px':'0'};text-align:${align};font-size:0.70rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--orange-dark);border-bottom:1px solid var(--orange);`;th.textContent=txt;hRow.appendChild(th);
+  });thead.appendChild(hRow);tbl.appendChild(thead);
+  const tbody=document.createElement('tbody');
+
+  function addNRow(label,excl,btw,incl){
+    const isNeg=incl<0;const clr=isNeg?'#c0392b':'var(--ink)';const gclr=isNeg?'#c0392b':'var(--grey-text)';
+    const tr=document.createElement('tr');
+    const tdN=document.createElement('td');tdN.style.cssText='padding:3px 12px 3px 0;font-weight:600;color:var(--grey-text);';tdN.textContent=label;
+    const tdE=document.createElement('td');tdE.style.cssText=`padding:3px 0 3px 12px;text-align:right;color:${gclr};font-weight:600;white-space:nowrap;`;tdE.textContent=excl<0?'− '+formatAmount(-excl):formatAmount(excl);
+    const tdB=document.createElement('td');tdB.style.cssText=`padding:3px 0 3px 12px;text-align:right;color:${gclr};font-weight:600;white-space:nowrap;`;tdB.textContent=btw<0?'− '+formatAmount(-btw):formatAmount(btw);
+    const tdV=document.createElement('td');tdV.style.cssText=`padding:3px 0 3px 12px;text-align:right;font-weight:700;color:${clr};white-space:nowrap;`;tdV.textContent=incl<0?'− '+formatAmount(-incl):formatAmount(incl);
+    tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tbody.appendChild(tr);
+  }
+
+  if(splitInvoices){
+    if(tA.incl)addNRow(naamA,tA.excl,tA.incl-tA.excl,tA.incl);
+    if(tB.incl)addNRow(naamB,tB.excl,tB.incl-tB.excl,tB.incl);
+  } else {
+    if(tA.incl)addNRow(naamA,tA.excl,tA.incl-tA.excl,tA.incl);
+  }
+  if(uitb.incl)addNRow('Uitbetaling vergoedingen toevoegingen',uitb.excl,uitb.incl-uitb.excl,uitb.incl);
+  if(zsI.incl)addNRow('Vergoedingsfactuur Zorgzaam Scheiden',-zsI.excl,-(zsI.incl-zsI.excl),-zsI.incl);
+  tbl.appendChild(tbody);
+
+  const tfoot=document.createElement('tfoot');const fRow=document.createElement('tr');
+  const bs='border-top:2px solid var(--orange);padding-top:6px;font-weight:800;font-size:0.88rem;';
+  const clr=nettoIncl<0?'#c0392b':'var(--ink)';
+  [{v:'Netto resultaat',s:bs+'padding-right:12px;color:var(--ink);'},{v:nettoExcl<0?'− '+formatAmount(-nettoExcl):formatAmount(nettoExcl),s:bs+'text-align:right;padding-left:12px;color:'+clr+';white-space:nowrap;'},{v:nettoBtw<0?'− '+formatAmount(-nettoBtw):formatAmount(nettoBtw),s:bs+'text-align:right;padding-left:12px;color:'+clr+';white-space:nowrap;'},{v:nettoIncl<0?'− '+formatAmount(-nettoIncl):formatAmount(nettoIncl),s:bs+'text-align:right;padding-left:12px;color:'+clr+';white-space:nowrap;'}].forEach(({v,s})=>{const td=document.createElement('td');td.style.cssText=s;td.textContent=v;fRow.appendChild(td);});
+  tfoot.appendChild(fRow);tbl.appendChild(tfoot);
+  wrap.appendChild(tbl);container.appendChild(wrap);
 }
 
 // ── Init ──
@@ -495,12 +896,36 @@ async function init(){
 
   const params=new URLSearchParams(location.search);
   const factuurId=params.get('id');
-  if(!factuurId){window.location.href='facturen.html';return;}
+  const dossierId=params.get('dossier_id');
+  if(!factuurId&&!dossierId){window.location.href='facturen.html';return;}
 
-  const{data:factuur}=await db.from('facturen').select('*').eq('id',factuurId).single();
-  if(!factuur){showToast('Factuur niet gevonden');document.getElementById('appScreen').style.display='block';return;}
-
-  await loadAllData(factuur);
+  if(dossierId){
+    // Check if there's an existing main factuur for this dossier (no sub_label in regels)
+    // If so, load it so we use the saved period/diensten and can auto-save period changes via Details tab
+    const{data:existingF}=await db.from('facturen').select('*').eq('dossier_id',dossierId);
+    const mainFactuur=(existingF||[]).find(f=>!f.regels?.sub_label);
+    if(mainFactuur){
+      await loadAllData(mainFactuur);
+    }else{
+      await loadAllDataFromDossier(dossierId);
+    }
+    if(!nwDossierData){document.getElementById('appScreen').style.display='block';return;}
+    await loadDossierFacturen();
+  } else {
+    const{data:factuur}=await db.from('facturen').select('*').eq('id',factuurId).single();
+    if(!factuur){showToast('Factuur niet gevonden');document.getElementById('appScreen').style.display='block';return;}
+    if(factuur.regels?.sub_label&&factuur.dossier_id){
+      // Sub-factuur opened directly — look up main factuur to restore saved period
+      const{data:existingF2}=await db.from('facturen').select('*').eq('dossier_id',factuur.dossier_id);
+      const mainF2=(existingF2||[]).find(f=>!f.regels?.sub_label);
+      if(mainF2){await loadAllData(mainF2);}else{await loadAllDataFromDossier(factuur.dossier_id);}
+      if(!nwDossierData){document.getElementById('appScreen').style.display='block';return;}
+      await loadDossierFacturen();
+    } else {
+      await loadAllData(factuur);
+      await loadDossierFacturen();
+    }
+  }
   computeNwFactLines();
 
   // Set factor inputs
