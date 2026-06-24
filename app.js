@@ -116,6 +116,8 @@ let dragRowId = null;
 let lastEditorMap = {};      // dossier_id → user_email
 let lastChangedAtMap = {};   // dossier_id → ISO timestamp of last change
 let currentEditorFilter = null;
+let viewMode = 'fase'; // 'fase' | 'alles'
+let activeFase = null;  // active phase in alles mode
 
 // ── VALUE HELPERS ──
 function hasValue(v) { return !!v && v !== 'n.v.t.'; }
@@ -465,7 +467,9 @@ function sortColRows(colRows, colId) {
 
 // ── RENDER BOARD ──
 function renderBoard() {
+  if (viewMode === 'alles') { renderBoardAlles(); return; }
   const board = document.getElementById('kanbanBoard');
+  board.classList.remove('board-alles');
   board.innerHTML = '';
 
   COLUMNS.forEach(col => {
@@ -536,6 +540,99 @@ function renderBoard() {
     syncKanbanScroll();
     equalizeCardHeights();
   });
+}
+
+// ── RENDER BOARD — ALLE FASEN (two-panel) ──
+function renderBoardAlles() {
+  if (!activeFase) activeFase = COLUMNS[0].id;
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = '';
+  board.classList.add('board-alles');
+
+  const layout = document.createElement('div');
+  layout.className = 'fase-layout';
+
+  // ── Sidebar: clickable phase list ──
+  const sidebar = document.createElement('div');
+  sidebar.className = 'fase-sidebar';
+
+  COLUMNS.forEach(col => {
+    const colCount = rows.filter(r => getColumn(r) === col.id).length;
+    const item = document.createElement('div');
+    item.className = 'fase-sidebar-item' + (col.id === activeFase ? ' active' : '');
+    item.dataset.faseId = col.id;
+    item.style.setProperty('--fase-clr', col.color);
+    item.onclick = () => setActiveFase(col.id);
+
+    const label = document.createElement('span');
+    label.className = 'fase-sidebar-label';
+    label.textContent = col.label;
+
+    const count = document.createElement('span');
+    count.className = 'kanban-col-count fase-sidebar-count';
+    count.textContent = colCount;
+
+    item.appendChild(label);
+    item.appendChild(count);
+    sidebar.appendChild(item);
+  });
+
+  // ── Content: header + cards of active phase ──
+  const content = document.createElement('div');
+  content.className = 'fase-content';
+
+  const activeCol = COLUMNS.find(c => c.id === activeFase) || COLUMNS[0];
+  const colRows = sortColRows(rows.filter(r => getColumn(r) === activeCol.id), activeCol.id);
+
+  const header = document.createElement('div');
+  header.className = 'kanban-col-header fase-content-header';
+  header.style.background = activeCol.color;
+  const title = document.createElement('h2');
+  title.textContent = activeCol.label;
+  const countBadge = document.createElement('span');
+  countBadge.className = 'kanban-col-count';
+  countBadge.id = 'faseBadge';
+  countBadge.textContent = colRows.length;
+  header.appendChild(title);
+  header.appendChild(countBadge);
+  content.appendChild(header);
+
+  const cardsWrap = document.createElement('div');
+  cardsWrap.className = 'kanban-cards fase-content-cards';
+  cardsWrap.dataset.colId = activeCol.id;
+
+  if (colRows.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'kanban-empty';
+    empty.textContent = 'Geen dossiers';
+    cardsWrap.appendChild(empty);
+  } else {
+    colRows.forEach(row => cardsWrap.appendChild(renderCard(row, activeCol)));
+  }
+  content.appendChild(cardsWrap);
+
+  layout.appendChild(sidebar);
+  layout.appendChild(content);
+  board.appendChild(layout);
+
+  const q = document.getElementById('searchInput')?.value || '';
+  filterCards(q, true);
+  requestAnimationFrame(() => { syncKanbanScroll(); equalizeCardHeights(); });
+}
+
+function setActiveFase(id) {
+  activeFase = id;
+  renderBoardAlles();
+}
+
+function getPhaseMatchCount(colId, q) {
+  return rows.filter(r => {
+    if (getColumn(r) !== colId) return false;
+    const matchSearch = !q || (r.klant || '').toLowerCase().includes(q);
+    const matchFilter = currentFilter !== 'alarm' || countAlarms(r) > 0;
+    const matchEditor = !currentEditorFilter || lastEditorMap[r.id] === currentEditorFilter;
+    return matchSearch && matchFilter && matchEditor;
+  }).length;
 }
 
 function equalizeCardHeights() {
@@ -799,10 +896,18 @@ function setSort(val) {
 
 function setFilter(type, btn) {
   if (currentFilter === type) { currentFilter = 'all'; btn.classList.remove('active'); }
-  else { currentFilter = type; document.querySelectorAll('.filter-tag').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
+  else { currentFilter = type; document.querySelectorAll('.filter-tag:not(#viewModeBtn)').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
   // Keep editor filter intact — reflect combined state
   updateEditorSelectStyle();
   filterCards(document.getElementById('searchInput').value);
+}
+
+function toggleViewMode(btn) {
+  viewMode = viewMode === 'fase' ? 'alles' : 'fase';
+  btn.textContent = viewMode === 'alles' ? 'alle fasen' : 'per fase';
+  btn.classList.toggle('active', viewMode === 'alles');
+  if (viewMode === 'alles' && !activeFase) activeFase = COLUMNS[0].id;
+  renderBoard();
 }
 
 function setEditorFilter(email) {
@@ -901,6 +1006,20 @@ function filterCards(query, skipScroll) {
       if (badge) badge.textContent = visible;
     }
   });
+
+  // Highlight sidebar phases with matches when in alles mode
+  if (viewMode === 'alles') {
+    const searching = q.length > 0 || currentFilter !== 'all' || !!currentEditorFilter;
+    document.querySelectorAll('.fase-sidebar-item').forEach(item => {
+      const colId = item.dataset.faseId;
+      if (!colId) return;
+      const matchCount = getPhaseMatchCount(colId, q);
+      const countEl = item.querySelector('.fase-sidebar-count');
+      if (countEl) countEl.textContent = searching ? matchCount : rows.filter(r => getColumn(r) === colId).length;
+      item.classList.toggle('has-results', searching && matchCount > 0);
+      item.classList.toggle('no-results', searching && matchCount === 0);
+    });
+  }
 
   if (!skipScroll) { if (q) scrollToSearchResults(); else scrollBoardTo(0); }
 }

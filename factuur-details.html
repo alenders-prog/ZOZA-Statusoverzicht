@@ -288,8 +288,18 @@ const RECHTBANK_ROWS = new Set([
 function fmtMoney(v) {
   return new Intl.NumberFormat('nl-NL',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 }
-// Parse Dutch-formatted numbers: strip thousands separator (.) before swapping decimal comma
-function parseDutch(s){return parseFloat((s||'').replace(/\./g,'').replace(',','.'))||0;}
+// Parse Dutch or plain numbers:
+//   "1.234,56" (Dutch with thousands)  → 1234.56
+//   "495,87"   (Dutch, no thousands)   → 495.87
+//   "495.87"   (plain/English decimal) → 495.87
+//   "1234"     (integer)               → 1234
+function parseDutch(s){
+  s=(s||'').trim();
+  if(!s)return 0;
+  if(s.includes('.')&&s.includes(','))return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;
+  if(s.includes(','))return parseFloat(s.replace(',','.'))||0;
+  return parseFloat(s)||0;
+}
 function tryParseJSON(v) { try{return JSON.parse(v)||{};}catch{return{};} }
 function formatDate(v) {
   if(!v||v==='n.v.t.')return v||'—';
