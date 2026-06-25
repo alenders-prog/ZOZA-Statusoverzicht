@@ -760,6 +760,30 @@ header h1 {
 .card-status-btn.urgent:hover { background: #B83518; color: var(--white); }
 .card-status-btn.muted     { border-color: var(--grey-rule); color: var(--grey); background: var(--grey-light); pointer-events: none; cursor: default; }
 
+/* ── Screen convenant knop (Concepten-kolom → Documentscreening) ── */
+.screen-conv-btn {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.65rem; font-weight: 700;
+  padding: 4px 10px;
+  margin-top: 8px;
+  border: 1.5px dashed #2D6AA0;
+  border-radius: 6px;
+  color: #2D6AA0;
+  background: #EEF4FB;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.screen-conv-btn:hover {
+  background: #2D6AA0;
+  color: #fff;
+  border-style: solid;
+}
+
 .info-link-btn {
   font-family: 'Nunito', sans-serif;
   font-size: 0.65rem; font-weight: 700;

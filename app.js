@@ -2,6 +2,9 @@
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// URL van de Documentscreening-app (voor "Screen convenant"-knop in Concepten-kolom)
+const DOCUMENTSCREENING_URL = 'https://documentscreening-alenders-progs-projects.vercel.app';
+
 // ── INFO COMPLETENESS ──
 const INFO_KEYS = ['leg_ouders_p1','leg_ouders_p2','leg_kinderen','huwelijkse_vw','testament','werkgever_p1','werkgever_p2','loonstroken_p1','loonstroken_p2','jaaropgave_p1','jaaropgave_p2','belasting_p1','belasting_p2','waarde_autos','pensioen_p1','pensioen_p2','saldi','saldo_polis','lijfrente','kapitaalverz','schulden','schenkingen','notarisakte','hypotheekgegevens','hypotheekakte','woz','jaaropgave_hyp','jaarcijfers_p1','jaarcijfers_p2'];
 
@@ -855,6 +858,18 @@ function renderCard(row, col) {
   });
 
   body.appendChild(fieldsWrap);
+
+  // ── Screen convenant knop (alleen in Concepten-kolom) ──
+  if (col.id === 'concepten') {
+    const screenBtn = document.createElement('a');
+    screenBtn.className = 'screen-conv-btn';
+    screenBtn.href = `${DOCUMENTSCREENING_URL}?naam=${encodeURIComponent(row.klant || '')}`;
+    screenBtn.target = '_blank';
+    screenBtn.rel    = 'noopener noreferrer';
+    screenBtn.textContent = '📄 Screen document →';
+    screenBtn.addEventListener('click', e => e.stopPropagation());
+    body.appendChild(screenBtn);
+  }
 
   // ── Opmerkingen (always rendered; invisible for columns without it) ──
   const opmText = row.opmerkingen && row.opmerkingen.trim();
