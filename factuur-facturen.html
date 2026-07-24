@@ -695,6 +695,24 @@ function addFactuurOverzicht(container,tableTitle,getAmounts,invertSign){
   container.appendChild(div);
 }
 
+// ── Automatisch bedrag_incl_calc bijwerken na berekeningswijziging ──
+async function autoRefreshCalcAmounts(){
+  if(!nwDossierData||!nwDossierFacturen.length)return;
+  const AFFECTED=['Vergoedingsfactuur Zorgzaam Scheiden','Uitbetaling vergoedingen toevoegingen'];
+  const affected=nwDossierFacturen.filter(f=>AFFECTED.includes(f.regels?.sub_label)&&!f.regels?.vrij);
+  if(!affected.length)return;
+  const calcMap=computePdfCalcMap();
+  for(const f of affected){
+    const entry=calcMap[f.regels.sub_label];
+    if(!entry)continue;
+    const newCalc=Math.round(entry.calcIncl*100)/100;
+    if(f.regels?.bedrag_incl_calc!=null&&Math.abs((f.regels.bedrag_incl_calc||0)-newCalc)<=0.005)continue;
+    const newRegels={...f.regels,bedrag_incl_calc:newCalc};
+    const{data}=await db.from('facturen').update({regels:newRegels}).eq('id',f.id).select().single();
+    if(data){const idx=nwDossierFacturen.findIndex(x=>x.id===f.id);if(idx>=0)nwDossierFacturen[idx]=data;}
+  }
+}
+
 // ── Table rendering ──
 function rebuildTables(){
   const wrap=document.getElementById('fact-tables-wrap');wrap.innerHTML='';
@@ -768,6 +786,8 @@ function rebuildTables(){
       if(Math.abs(delta)>0.5)nw.style.marginTop=Math.max(0,delta)+'px';
     }
   });
+  // Stil op de achtergrond: bijgewerkte berekening opslaan voor beide factuurtypen
+  autoRefreshCalcAmounts();
 }
 
 function appendZsVergoedingsfactuur(container){
@@ -787,8 +807,8 @@ function appendZsVergoedingsfactuur(container){
   const uitbA=toevA?rvrPerP-ebAmtA:0,uitbB=toevB?rvrPerP-ebAmtB:0;
   let feeLines=[],basis=0;
   if(nToev===0){basis=dienstIncl;feeLines=[{label:'Diensten',bedrag:dienstIncl}];}
-  else if(nToev===1){const naam=toevA?naamA:naamB;const uitb=toevA?uitbA:uitbB;const halfDienst=dienstIncl/2;basis=halfDienst+uitb;feeLines=[{label:'50% × Diensten',bedrag:halfDienst},{label:`RvR uitbetaling ${naam}`,bedrag:uitb}];}
-  else{basis=uitbA+uitbB;feeLines=[{label:`RvR uitbetaling ${naamA}`,bedrag:uitbA},{label:`RvR uitbetaling ${naamB}`,bedrag:uitbB}];}
+  else if(nToev===1){const naam=toevA?naamA:naamB;const halfDienst=dienstIncl/2;basis=halfDienst+rvrPerP;feeLines=[{label:'50% × Diensten',bedrag:halfDienst},{label:`RvR vergoeding ${naam}`,bedrag:rvrPerP}];}
+  else{basis=rvrPerP*2;feeLines=[{label:`RvR vergoeding ${naamA}`,bedrag:rvrPerP},{label:`RvR vergoeding ${naamB}`,bedrag:rvrPerP}];}
   const feeIncl=basis*nwZsFactor,feeExcl=feeIncl/1.21;
   const adIncl=checkedAll.reduce((s,r)=>s+(r.advocaat||0),0),adExcl=adIncl/(1+(nwAdvocaatBtw||21)/100);
   const gkA=nwFactLines.a.filter(l=>l.omschrijving==='Griffiekosten').reduce((s,l)=>s+(l.bedrag||0),0);
@@ -883,10 +903,10 @@ function appendUitbetalingVergoedingen(container){
   const dienstInclFull=checkedAll.reduce((s,r)=>s+(r.invoiceBedrag||0),0);
   // With 1 toevoeging only 50% of diensten flow through uitbetaling (other 50% billed to non-toevoeging person)
   const dienstIncl=nToev===1?dienstInclFull/2:dienstInclFull;
-  const coSubtot=nToev===1?(dienstIncl+(toevA?uitbA:uitbB)):(uitbA+uitbB);
+  // Subtotaal Uitbetalingen = RvR uitbetalingen + eigen bijdragen (die ook door ZS worden ontvangen)
+  const coSubtot=nToev===1?(dienstIncl+(toevA?uitbA:uitbB)+(toevA?ebAmtA:ebAmtB)):(uitbA+uitbB+ebAmtA+ebAmtB);
   const coZsFee=coSubtot*nwZsFactor,coBasis=coSubtot-coZsFee;
   const coKosten=coBasis*nwZsCoFactor,coKostenExcl=coKosten/1.21;
-  // Totaal column = RvR uitbetaling(s) − co-mediation costs (Subtotaal is internal only)
   const uitbTotaal=uitbA+uitbB;
   const netIncl0=uitbTotaal-coKosten;
   const netExcl0=uitbTotaal/1.21-coKostenExcl;
@@ -900,7 +920,7 @@ function appendUitbetalingVergoedingen(container){
   [['Omschrijving','th-l',null],['Bedrag excl BTW',null,'65px'],['BTW',null,'40px'],['Subtotaal',null,'40px'],['Totaal',null,'40px']].forEach(([label,cls,w])=>{const th=document.createElement('th');if(cls)th.className=cls;if(w)th.style.width=w;th.textContent=label;hRow.appendChild(th);});
   thead.appendChild(hRow);tbl.appendChild(thead);
   const tbody=document.createElement('tbody');
-  function addH(label,bedrag){
+  function addH(label,bedrag,totaalVal){
     const excl=bedrag/1.21;const btwAmt=bedrag-excl;
     const isNeg=bedrag<0;const isAdd=bedrag>0&&label.startsWith('+');
     const clr=isNeg?'#c0392b':isAdd?'#27ae60':'var(--grey)';
@@ -912,7 +932,8 @@ function appendUitbetalingVergoedingen(container){
     const tdE=document.createElement('td');tdE.style.cssText=s;tdE.textContent=bedrag!==0?(excl<0?'− '+formatAmount(-excl):formatAmount(excl)):'';
     const tdB=document.createElement('td');tdB.style.cssText=s;tdB.textContent=bedrag!==0?(btwAmt<0?'− '+formatAmount(-btwAmt):formatAmount(btwAmt)):'';
     const tdV=document.createElement('td');tdV.style.cssText=s;tdV.textContent=bedrag<0?'− '+formatAmount(-bedrag):formatAmount(bedrag);
-    const tdT=document.createElement('td');// empty Totaal cell
+    const tdT=document.createElement('td');
+    if(totaalVal!=null){tdT.style.cssText=s;tdT.textContent=totaalVal<0?'− '+formatAmount(-totaalVal):formatAmount(totaalVal);}
     tr.appendChild(tdN);tr.appendChild(tdE);tr.appendChild(tdB);tr.appendChild(tdV);tr.appendChild(tdT);tbody.appendChild(tr);
   }
   function addS(label,bedrag,totaalVal){
@@ -939,13 +960,12 @@ function appendUitbetalingVergoedingen(container){
   }
   if(toevA){addH(`RvR vergoeding ${naamA}`,rvrPerP);addH(`− Eigen bijdrage ${naamA}`,-ebAmtA);addS(`RvR uitbetaling ${naamA}`,uitbA,uitbA);}
   if(toevB){addH(`RvR vergoeding ${naamB}`,rvrPerP);addH(`− Eigen bijdrage ${naamB}`,-ebAmtB);addS(`RvR uitbetaling ${naamB}`,uitbB,uitbB);}
-  if(nToev===1){const naam=toevA?naamA:naamB;const uitb=toevA?uitbA:uitbB;addH('Diensten (excl. advocaat & griffie)',dienstIncl);addH(`+ RvR uitbetaling ${naam}`,uitb);addS('Subtotaal',coSubtot);}
-  else{addH(`RvR uitbetaling ${naamA}`,uitbA);addH(`+ RvR uitbetaling ${naamB}`,uitbB);addS('Subtotaal uitbetalingen',coSubtot);}
+  if(nToev===1){const naam=toevA?naamA:naamB;const uitb=toevA?uitbA:uitbB;const eb=toevA?ebAmtA:ebAmtB;addH('Diensten (excl. advocaat & griffie)',dienstIncl);addH(`+ RvR uitbetaling ${naam}`,uitb);addH(`+ Eigen bijdrage ${naam}`,eb);addS('Subtotaal',coSubtot);}
+  else{addH(`RvR uitbetaling ${naamA}`,uitbA);addH(`+ RvR uitbetaling ${naamB}`,uitbB);addH(`+ Eigen bijdrage ${naamA}`,ebAmtA);addH(`+ Eigen bijdrage ${naamB}`,ebAmtB);addS('Subtotaal uitbetalingen',coSubtot);}
   addH(`− Dossierafhankelijke fee (${Math.round(nwZsFactor*100)}%)`,-coZsFee);
   addS('Basis co-mediation',coBasis);
   addR(`Kosten Co-mediation (${Math.round(nwZsCoFactor*100)}%)`,coKosten,coKostenExcl,-coKosten);
   tbl.appendChild(tbody);
-  // Totaal = RvR uitbetaling(en) − kosten co-mediation (Subtotaal is not part of this)
   const netIncl=uitbTotaal-coKosten;
   const netExcl=uitbTotaal/1.21-coKostenExcl;
   const netBtw=netIncl-netExcl;
@@ -1485,8 +1505,8 @@ function computePdfCalcMap() {
   const uitbB = toevB ? rvrPerP-ebAmtB : 0;
   let basis = 0;
   if (nToev===0) basis=dienstIncl;
-  else if (nToev===1) { const u=toevA?uitbA:uitbB; basis=dienstIncl/2+u; }
-  else basis=uitbA+uitbB;
+  else if (nToev===1) { basis=dienstIncl/2+rvrPerP; }
+  else basis=rvrPerP*2;
   const feeIncl = basis*nwZsFactor;
   const adIncl = checkedAll.reduce((s,r)=>s+(r.advocaat||0), 0);
   const gkIncl = [...nwFactLines.a,...nwFactLines.b].filter(l=>l.omschrijving==='Griffiekosten').reduce((s,l)=>s+(l.bedrag||0), 0);
@@ -1498,7 +1518,10 @@ function computePdfCalcMap() {
   if (nToev > 0) {
     const dienstFull = checkedAll.reduce((s,r)=>s+(r.invoiceBedrag||0), 0);
     const di = nToev===1 ? dienstFull/2 : dienstFull;
-    const coSub = nToev===1 ? di+(toevA?uitbA:uitbB) : uitbA+uitbB;
+    const singleEB = toevA ? ebAmtA : ebAmtB;
+    const coSub = nToev===1
+      ? (di+(toevA?uitbA:uitbB)+singleEB)
+      : (uitbA+uitbB+ebAmtA+ebAmtB);
     const netIncl = (uitbA+uitbB) - (coSub-coSub*nwZsFactor)*nwZsCoFactor;
     if (Math.abs(netIncl) > 0.01) map['Uitbetaling vergoedingen toevoegingen'] = {calcIncl: netIncl, invertSign: false};
   }
