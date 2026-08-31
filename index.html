@@ -85,7 +85,10 @@
     </div>
   </header>
   <div class="toolbar">
-    <button id="viewModeBtn" class="filter-tag" onclick="toggleViewMode(this)">per fase</button>
+    <div class="view-seg">
+      <button class="view-seg-btn active" id="viewBtnFase"  onclick="setViewMode('fase')">per fase</button>
+      <button class="view-seg-btn"        id="viewBtnAlles" onclick="setViewMode('alles')">alle fasen</button>
+    </div>
     <div class="search-box">
       <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#999" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M14 14l4 4"/></svg>
       <input type="text" id="searchInput" aria-label="Zoek op klantnaam" placeholder="Zoek op klantnaam..." oninput="sessionStorage.setItem('sharedSearch',this.value);filterCards(this.value);document.getElementById('searchClear').style.display=this.value?'flex':'none'">

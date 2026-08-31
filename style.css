@@ -359,6 +359,7 @@ header h1 {
   .toolbar .toolbar-sep { margin-left: 0; }
   .toolbar .btn,
   .toolbar .filter-tag,
+  .toolbar .view-seg,
   .toolbar .toolbar-sort,
   .toolbar .search-box { flex-shrink: 0; }
   .search-box { min-width: 160px; }
@@ -423,6 +424,22 @@ header h1 {
   flex-shrink: 0;
 }
 .search-clear:hover { color: var(--ink); }
+
+/* ── View mode segmented control ── */
+.view-seg { display: flex; flex-shrink: 0; }
+.view-seg-btn {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.72rem; font-weight: 700;
+  padding: 5px 14px;
+  border: 1.5px solid var(--grey-rule);
+  background: var(--white); color: var(--grey-text);
+  cursor: pointer; transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+.view-seg-btn:first-child { border-radius: 20px 0 0 20px; border-right: none; }
+.view-seg-btn:last-child  { border-radius: 0 20px 20px 0; }
+.view-seg-btn.active { background: var(--orange); color: var(--white); border-color: var(--orange); }
+.view-seg-btn:hover:not(.active) { border-color: var(--orange); color: var(--orange); }
 
 .filter-tag {
   font-family: 'Nunito', sans-serif;

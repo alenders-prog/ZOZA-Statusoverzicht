@@ -415,7 +415,10 @@ async function loadNwDossierDetail(d, savedRegels) {
     applySavedDiensten(savedRegels.diensten); computeNwFactLines();
     const baselineLines=JSON.parse(JSON.stringify(nwFactLines));
     const savedNames=new Set((savedRegels.diensten||[]).map(d=>d.naam));
-    pickNwDiensten(); computeNwFactLines();
+    pickNwDiensten();
+    // Preserve custom advocaat/griffie so conflict doesn't fire for intentional overrides
+    savedRegels.diensten.forEach(saved=>{if(saved.advocaat==null)return;const row=nwMoRows.find(r=>r.omschrijving===saved.naam);if(row&&row.checked){row.advocaat=saved.advocaat;row.griffie=saved.griffie??0;}});
+    computeNwFactLines();
     const freshLines=JSON.parse(JSON.stringify(nwFactLines));
     const freshNames=new Set(nwMoRows.filter(r=>r.checked).map(r=>r.omschrijving));
     applySavedDiensten(savedRegels.diensten); nwFactLines=baselineLines;
@@ -667,7 +670,7 @@ function renderNwDiensten(){
     const showAdvGriffie=RECHTBANK_ROWS.has(row.omschrijving);
     const tdA=document.createElement('td'),tdG=document.createElement('td');
     let inpA,inpG;
-    if(showAdvGriffie){inpA=makeFactInp(row.advocaat||0,!row.checked,v=>{row.advocaat=v;calcNwTotal();});tdA.appendChild(inpA);inpG=makeFactInp(row.griffie||0,!row.checked,v=>{row.griffie=v;calcNwTotal();});tdG.appendChild(inpG);}
+    if(showAdvGriffie){inpA=makeFactInp(row.advocaat||0,!row.checked,v=>{row.advocaat=v;calcNwTotal();autoSaveRegels('Opgeslagen');});tdA.appendChild(inpA);inpG=makeFactInp(row.griffie||0,!row.checked,v=>{row.griffie=v;calcNwTotal();autoSaveRegels('Opgeslagen');});tdG.appendChild(inpG);}
     else{inpA=document.createElement('input');inpA.disabled=true;inpG=document.createElement('input');inpG.disabled=true;}
     tr.appendChild(tdA);tr.appendChild(tdG);
     const tdT=document.createElement('td');tdT.dataset.role='row-tot';tdT.style.fontWeight='800';tr.appendChild(tdT);

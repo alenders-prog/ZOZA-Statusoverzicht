@@ -470,7 +470,7 @@ function sortColRows(colRows, colId) {
 
 // ── RENDER BOARD ──
 function renderBoard() {
-  if (viewMode === 'alles') { renderBoardAlles(); return; }
+  if (viewMode === 'fase') { renderBoardAlles(); return; }
   const board = document.getElementById('kanbanBoard');
   board.classList.remove('board-alles');
   board.innerHTML = '';
@@ -625,6 +625,7 @@ function renderBoardAlles() {
 
 function setActiveFase(id) {
   activeFase = id;
+  sessionStorage.setItem('kanbanActiveFase', id);
   renderBoardAlles();
 }
 
@@ -917,12 +918,13 @@ function setFilter(type, btn) {
   filterCards(document.getElementById('searchInput').value);
 }
 
-function toggleViewMode(btn) {
-  viewMode = viewMode === 'fase' ? 'alles' : 'fase';
-  btn.textContent = viewMode === 'alles' ? 'alle fasen' : 'per fase';
-  btn.classList.toggle('active', viewMode === 'alles');
-  if (viewMode === 'alles' && !activeFase) activeFase = COLUMNS[0].id;
-  renderBoard();
+function setViewMode(mode, skipRender) {
+  viewMode = mode;
+  sessionStorage.setItem('kanbanViewMode', mode);
+  document.getElementById('viewBtnFase') ?.classList.toggle('active', mode === 'fase');
+  document.getElementById('viewBtnAlles')?.classList.toggle('active', mode === 'alles');
+  if (mode === 'fase' && !activeFase) activeFase = COLUMNS[0].id;
+  if (!skipRender) renderBoard();
 }
 
 function setEditorFilter(email) {
@@ -1022,8 +1024,8 @@ function filterCards(query, skipScroll) {
     }
   });
 
-  // Highlight sidebar phases with matches when in alles mode
-  if (viewMode === 'alles') {
+  // Highlight sidebar phases with matches when in per-fase mode (two-panel)
+  if (viewMode === 'fase') {
     const searching = q.length > 0 || currentFilter !== 'all' || !!currentEditorFilter;
     document.querySelectorAll('.fase-sidebar-item').forEach(item => {
       const colId = item.dataset.faseId;
@@ -1168,6 +1170,12 @@ async function enterApp(user) {
   document.getElementById('userEmail').textContent = user.email;
   window._clUser = user.email;
 
+  // Restore view mode before first render so loadRows → renderBoard uses the right mode
+  const savedMode = sessionStorage.getItem('kanbanViewMode');
+  const savedFase = sessionStorage.getItem('kanbanActiveFase');
+  viewMode = savedMode || 'fase';
+  activeFase = savedFase || COLUMNS[0].id;
+
   alarmSettings = JSON.parse(localStorage.getItem('alarmsettings') || '{}');
   try {
     const { data: alarmData } = await db.from('alarmsettings').select('settings').eq('id', 'main').maybeSingle();
@@ -1183,6 +1191,9 @@ async function enterApp(user) {
     document.getElementById('loadingOverlay').style.display = 'none';
     document.getElementById('appScreen').style.display = 'block';
     initKanbanScroll();
+    // Sync button states to match the viewMode that was applied before first render
+    document.getElementById('viewBtnFase') ?.classList.toggle('active', viewMode === 'fase');
+    document.getElementById('viewBtnAlles')?.classList.toggle('active', viewMode === 'alles');
     const savedSearch = sessionStorage.getItem('sharedSearch');
     if (savedSearch) {
       const searchEl = document.getElementById('searchInput');

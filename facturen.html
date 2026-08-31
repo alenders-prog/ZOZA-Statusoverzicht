@@ -16,13 +16,17 @@
 #factScroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 240px); }
 #factTable { table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 
-/* Fixed column widths — del is col 1, Dossier col 2, Omschrijving col 3, then date/amount cols */
-/* cols 5-7 = Factuurdatum, Vervaldatum, Bedrag; col 8 = Verschil (narrow); col 9 = Status */
+/* Fixed column widths — del is col 1, Dossier col 2, Omschrijving col 3, Factuurnummer col 4,
+   Factuurdatum col 5, Vervaldatum col 6, Excl BTW col 7, BTW col 8, Totaal col 9,
+   Verschil col 10, Status col 11, Betaaldatum col 12, Opmerkingen col 13 */
 #factTable thead tr.col-row th:nth-child(5),
 #factTable thead tr.col-row th:nth-child(6),
+#factTable thead tr.col-row th:nth-child(11),
+#factTable thead tr.col-row th:nth-child(12) { width: 160px; }
 #factTable thead tr.col-row th:nth-child(7),
-#factTable thead tr.col-row th:nth-child(9) { width: 160px; }
-#factTable thead tr.col-row th:nth-child(8) { width: 100px; }
+#factTable thead tr.col-row th:nth-child(9)  { width: 130px; }
+#factTable thead tr.col-row th:nth-child(8)  { width: 90px; }
+#factTable thead tr.col-row th:nth-child(10) { width: 100px; }
 
 /* Delete column */
 #factTable thead tr.col-row th:nth-child(1) { width: 32px; padding: 0; }
@@ -226,6 +230,16 @@
 .fact-inp-sm:not(:disabled) { border-bottom-color: #ddd; cursor: text; }
 .fact-inp-sm:not(:disabled):focus { border-bottom-color: var(--orange); background: #fff8f0; }
 .fact-inp-sm:disabled { color: transparent; pointer-events: none; }
+
+/* Totalen-rij (tfoot) — sticky onderaan scroll-container */
+#factFoot td {
+  position: sticky; bottom: 0; z-index: 4;
+  background: var(--orange-soft); border-top: 2px solid var(--orange);
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.82rem;
+  padding: 7px 10px; white-space: nowrap;
+}
+#factFoot td:nth-child(1) { position: sticky; bottom: 0; left: 0;    z-index: 12; }
+#factFoot td:nth-child(2) { position: sticky; bottom: 0; left: 32px; z-index: 12; border-right: 1px solid var(--grey-rule); }
 </style>
 </head>
 <body>
@@ -288,6 +302,7 @@
       <table id="factTable" style="width:100%;">
         <thead><tr id="factHead" class="col-row"></tr></thead>
         <tbody id="factBody"></tbody>
+        <tfoot id="factFoot"></tfoot>
       </table>
     </div>
     <div id="emptyMsg" style="display:none;padding:24px 12px;font-family:'Nunito',sans-serif;font-size:0.83rem;font-weight:600;color:var(--grey);">Geen facturen gevonden.</div>
@@ -462,7 +477,9 @@ const COLUMNS = [
   { label: 'Factuurnummer',    key: 'factuurnummer', type: 'string',  sortable: true,  thClass: ''       },
   { label: 'Factuurdatum',     key: 'factuurdatum',  type: 'date',    sortable: true,  thClass: ''       },
   { label: 'Vervaldatum',      key: 'vervaldatum',   type: 'date',    sortable: true,  thClass: ''       },
-  { label: 'Bedrag',           key: 'bedrag',        type: 'amount',  sortable: true,  thClass: ''       },
+  { label: 'Excl BTW',        key: '_exclbtw',      type: 'exclbtw', sortable: true,  thClass: ''       },
+  { label: 'BTW',             key: '_btwamt',       type: 'btwamt',  sortable: false, thClass: 'no-sort'},
+  { label: 'Totaal',           key: 'bedrag',        type: 'amount',  sortable: true,  thClass: ''       },
   { label: 'Verschil',         key: '_verschil',     type: 'verschil',sortable: true,  thClass: ''       },
   { label: 'Status',           key: 'status',        type: 'status',  sortable: true,  thClass: ''       },
   { label: 'Betaaldatum',      key: 'betaaldatum',   type: 'date',    sortable: true,  thClass: ''       },
@@ -708,21 +725,58 @@ function renderRows(data) {
           : '—';
         td.innerHTML = `<div class="cell-display" style="justify-content:flex-end">${amtDisplay}</div>`;
 
+      } else if (col.type === 'exclbtw') {
+        const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+        const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
+        const exclVal = row.regels?.vrij
+          ? (row.regels.bedrag_excl ?? (bedrag != null ? bedrag / 1.21 : null))
+          : (bedrag != null ? bedrag / 1.21 : null);
+        td.className = 'date-td editable-row-cell';
+        td.style.cssText += 'text-align:right;cursor:pointer;';
+        const exclDisplay = exclVal != null
+          ? (isIncoming ? `<span style="color:#c0392b;font-weight:700;">− ${formatAmount(exclVal)}</span>` : formatAmount(exclVal))
+          : '—';
+        td.innerHTML = `<div class="cell-display" style="justify-content:flex-end">${exclDisplay}</div>`;
+
+      } else if (col.type === 'btwamt') {
+        const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+        const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
+        const btwVal = row.regels?.vrij
+          ? (row.regels.bedrag_btw ?? (bedrag != null ? bedrag - bedrag / 1.21 : null))
+          : (bedrag != null ? bedrag - bedrag / 1.21 : null);
+        td.className = 'date-td editable-row-cell';
+        td.style.cssText += 'text-align:right;cursor:pointer;';
+        const btwDisplay = btwVal != null
+          ? (isIncoming ? `<span style="color:#c0392b;font-weight:700;">− ${formatAmount(btwVal)}</span>` : formatAmount(btwVal))
+          : '—';
+        td.innerHTML = `<div class="cell-display" style="justify-content:flex-end">${btwDisplay}</div>`;
+
       } else if (col.type === 'verschil') {
-        const calcAmt = row.regels?.bedrag_incl_calc;
-        const factAmt = row.bedrag;
         td.style.cssText += 'text-align:right;';
-        if (calcAmt == null || factAmt == null) {
-          td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:var(--grey);">—</div>`;
+        if (row.regels?.vrij) {
+          // Vrije factuur: toon bedrag gekleurd op basis van richting (↑ voordeel = groen, ↓ nadeel = rood)
+          const factAmt = row.bedrag;
+          const isVoordeel = (row.regels?.richting || 'voordeel') !== 'nadeel';
+          const clr  = isVoordeel ? '#27ae60' : '#c0392b';
+          const sign = isVoordeel ? '↑ ' : '↓ ';
+          td.innerHTML = factAmt != null
+            ? `<div class="cell-display" style="justify-content:flex-end;color:${clr};font-weight:700;">${sign}${formatAmount(factAmt)}</div>`
+            : `<div class="cell-display" style="justify-content:flex-end;color:var(--grey);">—</div>`;
         } else {
-          const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
-          const diff = isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
-          if (Math.abs(diff) < 0.005) {
+          const calcAmt = row.regels?.bedrag_incl_calc;
+          const factAmt = row.bedrag;
+          if (calcAmt == null || factAmt == null) {
             td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:var(--grey);">—</div>`;
           } else {
-            const color = diff > 0 ? '#27ae60' : '#c0392b';
-            const prefix = diff > 0 ? '+' : '';
-            td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:${color};font-weight:700;">${prefix}${formatAmount(diff)}</div>`;
+            const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+            const diff = isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
+            if (Math.abs(diff) < 0.005) {
+              td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:var(--grey);">—</div>`;
+            } else {
+              const color = diff > 0 ? '#27ae60' : '#c0392b';
+              const prefix = diff > 0 ? '+' : '';
+              td.innerHTML = `<div class="cell-display" style="justify-content:flex-end;color:${color};font-weight:700;">${prefix}${formatAmount(diff)}</div>`;
+            }
           }
         }
 
@@ -795,7 +849,21 @@ function getSortVal(row, col) {
       const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
       return isIncoming ? -amt : amt;
     }
+    case 'exclbtw': {
+      const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
+      const excl = row.regels?.vrij
+        ? (row.regels.bedrag_excl ?? (bedrag != null ? bedrag / 1.21 : null))
+        : (bedrag != null ? bedrag / 1.21 : null);
+      if (excl == null) return null;
+      const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+      return isIncoming ? -excl : excl;
+    }
     case 'verschil': {
+      if (row.regels?.vrij) {
+        const factAmt = row.bedrag;
+        if (factAmt == null) return null;
+        return (row.regels?.richting || 'voordeel') !== 'nadeel' ? factAmt : -factAmt;
+      }
       const calcAmt = row.regels?.bedrag_incl_calc;
       const factAmt = row.bedrag;
       if (calcAmt == null || factAmt == null) return null;
@@ -831,6 +899,120 @@ function sortedRows(data) {
   });
 }
 
+// ── Dossier-totalen in tfoot (getoond als er precies 1 dossier zichtbaar is) ──
+function renderFactTotals(data) {
+  const tfoot = document.getElementById('factFoot');
+  if (!tfoot) return;
+
+  // Alleen tonen als alle zichtbare rijen tot hetzelfde dossier behoren
+  const uniqueIds = new Set(data.map(r => r.dossier_id || r.klant));
+  if (uniqueIds.size !== 1 || !data.length) { tfoot.innerHTML = ''; return; }
+
+  let sumExcl = 0, sumBtw = 0, sumNettoBerekend = 0, sumExclBerekend = 0, sumBtwBerekend = 0, sumVerschil = 0;
+  let cntBetaald = 0, cntOpen = 0, cntVerlopen = 0;
+
+  data.forEach(row => {
+    const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
+    const factAmt   = row.bedrag != null ? parseFloat(row.bedrag) : 0;
+    const sign      = isIncoming ? -1 : 1;
+    const eff = isVerlopen(row) ? 'verlopen' : (row.status || 'open');
+    if (eff === 'betaald')  cntBetaald++;
+    if (eff === 'open')     cntOpen++;
+    if (eff === 'verlopen') cntVerlopen++;
+
+    // Excl BTW en BTW (obv werkelijk gefactureerd bedrag)
+    const exclVal = row.regels?.vrij
+      ? (row.regels.bedrag_excl ?? factAmt / 1.21)
+      : factAmt / 1.21;
+    const btwVal  = row.regels?.vrij
+      ? (row.regels.bedrag_btw  ?? factAmt - factAmt / 1.21)
+      : factAmt - factAmt / 1.21;
+    sumExcl += exclVal * sign;
+    sumBtw  += btwVal  * sign;
+
+    // Netto berekend resultaat: gebruik calcAmt voor reguliere facturen, richting voor vrije
+    let berekendIncl;
+    if (row.regels?.vrij) {
+      const isVoordeel = (row.regels?.richting || 'voordeel') !== 'nadeel';
+      berekendIncl = factAmt * (isVoordeel ? 1 : -1);
+    } else {
+      const calcAmt = row.regels?.bedrag_incl_calc;
+      berekendIncl = (calcAmt != null ? calcAmt : factAmt) * sign;
+    }
+    sumNettoBerekend  += berekendIncl;
+    sumExclBerekend   += berekendIncl / 1.21;
+    sumBtwBerekend    += berekendIncl - berekendIncl / 1.21;
+
+    // Verschil
+    if (row.regels?.vrij) {
+      sumVerschil += factAmt * ((row.regels?.richting || 'voordeel') !== 'nadeel' ? 1 : -1);
+    } else {
+      const calcAmt = row.regels?.bedrag_incl_calc;
+      if (calcAmt != null && row.bedrag != null) {
+        const diff = isIncoming ? (calcAmt - factAmt) : (factAmt - calcAmt);
+        if (Math.abs(diff) >= 0.005) sumVerschil += diff;
+      }
+    }
+  });
+
+  const tr = document.createElement('tr');
+  COLUMNS.forEach(col => {
+    const td = document.createElement('td');
+    if (col.type === 'del') {
+      td.style.cssText = 'width:32px;padding:0;';
+
+    } else if (col.key === 'klant') {
+      td.style.cssText = 'font-size:0.70rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--orange-dark);';
+      td.textContent = 'Totaal';
+
+    } else if (col.type === 'amount') {
+      td.style.textAlign = 'right';
+      if (sumNettoBerekend < -0.005) {
+        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumNettoBerekend)}</span>`;
+      } else {
+        td.textContent = formatAmount(sumNettoBerekend);
+      }
+
+    } else if (col.type === 'exclbtw') {
+      td.style.textAlign = 'right';
+      if (sumExclBerekend < -0.005) {
+        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumExclBerekend)}</span>`;
+      } else {
+        td.textContent = formatAmount(sumExclBerekend);
+      }
+
+    } else if (col.type === 'btwamt') {
+      td.style.textAlign = 'right';
+      if (sumBtwBerekend < -0.005) {
+        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumBtwBerekend)}</span>`;
+      } else {
+        td.textContent = formatAmount(sumBtwBerekend);
+      }
+
+    } else if (col.type === 'verschil') {
+      td.style.textAlign = 'right';
+      if (Math.abs(sumVerschil) >= 0.005) {
+        const clr = sumVerschil > 0 ? '#27ae60' : '#c0392b';
+        const pfx = sumVerschil > 0 ? '+' : '';
+        td.innerHTML = `<span style="color:${clr}">${pfx}${formatAmount(sumVerschil)}</span>`;
+      }
+
+    } else if (col.type === 'status') {
+      td.style.cssText = 'font-size:0.70rem;font-weight:700;text-align:center;color:var(--grey);white-space:nowrap;';
+      const parts = [];
+      if (cntBetaald)  parts.push(`${cntBetaald}× betaald`);
+      if (cntOpen)     parts.push(`${cntOpen}× open`);
+      if (cntVerlopen) parts.push(`${cntVerlopen}× verlopen`);
+      td.textContent = parts.join(' · ');
+    }
+
+    tr.appendChild(td);
+  });
+
+  tfoot.innerHTML = '';
+  tfoot.appendChild(tr);
+}
+
 // ── Filter ──
 function filterRows(q) {
   searchQuery = (q || '').trim().toLowerCase();
@@ -842,6 +1024,7 @@ function filterRows(q) {
     return matchSearch && matchStatus;
   });
   renderRows(sortedRows(data));
+  renderFactTotals(data);
 }
 
 // ── Load data ──
@@ -876,7 +1059,29 @@ function exportCSV() {
         const val = isIncoming ? -amt : amt;
         return val.toFixed(2).replace('.', ',');
       }
+      if (col.type === 'exclbtw') {
+        const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
+        const excl = row.regels?.vrij
+          ? (row.regels.bedrag_excl ?? (bedrag != null ? bedrag / 1.21 : null))
+          : (bedrag != null ? bedrag / 1.21 : null);
+        if (excl == null) return '';
+        return (isIncoming ? -excl : excl).toFixed(2).replace('.', ',');
+      }
+      if (col.type === 'btwamt') {
+        const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
+        const btw = row.regels?.vrij
+          ? (row.regels.bedrag_btw ?? (bedrag != null ? bedrag - bedrag / 1.21 : null))
+          : (bedrag != null ? bedrag - bedrag / 1.21 : null);
+        if (btw == null) return '';
+        return (isIncoming ? -btw : btw).toFixed(2).replace('.', ',');
+      }
       if (col.type === 'verschil') {
+        if (row.regels?.vrij) {
+          const factAmt = row.bedrag;
+          if (factAmt == null) return '';
+          const val = (row.regels?.richting || 'voordeel') !== 'nadeel' ? factAmt : -factAmt;
+          return val.toFixed(2).replace('.', ',');
+        }
         const calcAmt = row.regels?.bedrag_incl_calc;
         const factAmt = row.bedrag;
         if (calcAmt == null || factAmt == null) return '';
@@ -1511,10 +1716,7 @@ function factLinesEqual(a, b) {
 
 // ── Facturen tab: render ──
 function renderNwFactuurTab() {
-  // Only recompute when no active conflict (conflict is detected at load time in loadNwDossierDetail)
-  if (!nwFactConflict) {
-    computeNwFactLines();
-  }
+  computeNwFactLines();
 
   const body = document.getElementById('nw-fact-body');
 
@@ -2023,6 +2225,7 @@ async function onNwMoPeriodChange(val) {
   renderNwDiensten();
   // Rebuild Facturen tab if already rendered
   if (document.getElementById('nw-fact-tables')) rebuildNwFactTables();
+  autoSaveRegels();
 }
 
 function renderNwDiensten() {
@@ -2039,7 +2242,11 @@ function renderNwDiensten() {
       row.checked = cb.checked;
       tr.classList.toggle('row-unchecked', !cb.checked);
       [inpB, inpA, inpG].forEach(i => i.disabled = !cb.checked);
+      nwFactConflict = false; renderNwConflictBanner();
       calcNwTotal();
+      computeNwFactLines();
+      if (document.getElementById('nw-fact-tables')) rebuildNwFactTables();
+      autoSaveRegels();
     };
     tdCb.appendChild(cb); tr.appendChild(tdCb);
 
@@ -2062,7 +2269,11 @@ function renderNwDiensten() {
         row.aantal = n;
         row.invoiceBedrag = n * row.bedrag;
         inpB.value = fmtMoney(row.invoiceBedrag);
+        nwFactConflict = false; renderNwConflictBanner();
         calcNwTotal();
+        computeNwFactLines();
+        if (document.getElementById('nw-fact-tables')) rebuildNwFactTables();
+        autoSaveRegels();
       });
       // Keep aantal in sync when checkbox toggles
       cb.addEventListener('change', () => { inpAantal.disabled = !cb.checked; });
@@ -2071,7 +2282,7 @@ function renderNwDiensten() {
     tr.appendChild(tdAantal);
 
     // Bedrag
-    const inpB = makeFactInp(row.invoiceBedrag || 0, !row.checked, v => { row.invoiceBedrag = v; calcNwTotal(); });
+    const inpB = makeFactInp(row.invoiceBedrag || 0, !row.checked, v => { row.invoiceBedrag = v; nwFactConflict = false; renderNwConflictBanner(); calcNwTotal(); computeNwFactLines(); if (document.getElementById('nw-fact-tables')) rebuildNwFactTables(); autoSaveRegels(); });
     const tdB = document.createElement('td'); tdB.appendChild(inpB); tr.appendChild(tdB);
 
     // Advocaat + Griffie — only for Gehuwd/GP and SW rows
@@ -2079,9 +2290,9 @@ function renderNwDiensten() {
     const tdA = document.createElement('td');
     const tdG = document.createElement('td');
     if (showAdvGriffie) {
-      const inpA = makeFactInp(row.advocaat || 0, !row.checked, v => { row.advocaat = v; calcNwTotal(); });
+      const inpA = makeFactInp(row.advocaat || 0, !row.checked, v => { row.advocaat = v; nwFactConflict = false; renderNwConflictBanner(); calcNwTotal(); computeNwFactLines(); if (document.getElementById('nw-fact-tables')) rebuildNwFactTables(); autoSaveRegels(); });
       tdA.appendChild(inpA);
-      const inpG = makeFactInp(row.griffie || 0, !row.checked, v => { row.griffie = v; calcNwTotal(); });
+      const inpG = makeFactInp(row.griffie || 0, !row.checked, v => { row.griffie = v; nwFactConflict = false; renderNwConflictBanner(); calcNwTotal(); computeNwFactLines(); if (document.getElementById('nw-fact-tables')) rebuildNwFactTables(); autoSaveRegels(); });
       tdG.appendChild(inpG);
     }
     tr.appendChild(tdA);
@@ -2214,14 +2425,44 @@ function dossierKeyNav(e) {
   opts[ddActiveIdx]?.scrollIntoView({ block: 'nearest' });
 }
 
+let _autoSaveTimer = null;
+async function autoSaveRegels() {
+  if (!nwEditId) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(async () => {
+    const regels = nwDossierData ? {
+      periode_mo:     document.getElementById('nw-mo-period').value || null,
+      diensten:       nwMoRows.filter(r => r.checked).map(r => ({
+                        naam: r.omschrijving, bedrag: r.invoiceBedrag, aantal: r.aantal || 1,
+                        advocaat: r.advocaat || 0, griffie: r.griffie || 0 })),
+      toevoegingen:   nwToevRows,
+      rvr_vergoeding: nwRvrVergoeding,
+      co_mediation:   nwCoMediation,
+      factuur_lines:  nwFactLines,
+    } : null;
+    const bedragRaw = document.getElementById('nw-bedrag').value;
+    const bedrag = bedragRaw ? parseFloat(bedragRaw.replace(/\./g, '').replace(',', '.')) : null;
+    const payload = { ...(regels ? { regels } : {}), bedrag: (bedrag !== null && !isNaN(bedrag)) ? bedrag : null };
+    const editId = nwEditId;
+    const { data, error } = await db.from('facturen').update(payload).eq('id', editId).select().single();
+    if (error) { showToast('Auto-opslaan mislukt: ' + error.message); return; }
+    if (data) {
+      const idx = rows.findIndex(r => r.id === editId);
+      if (idx >= 0) rows[idx] = data;
+      filterRows(document.getElementById('searchInput').value);
+      showToast('Automatisch opgeslagen');
+    }
+  }, 800);
+}
+
 async function submitNieuwFactuur() {
   const klant     = document.getElementById('nw-dossier-input').value.trim();
   const dossierId = document.getElementById('nw-dossier-id').value || null;
   const factuurnummer = document.getElementById('nw-factuurnr').value.trim() || null;
   const factuurdatum  = document.getElementById('nw-factuurdat').value || null;
   const vervaldatum   = document.getElementById('nw-vervaldat').value  || null;
-  const bedragRaw = document.getElementById('nw-bedrag').value.replace(',', '.');
-  const bedrag    = bedragRaw ? parseFloat(bedragRaw) : null;
+  const bedragRaw = document.getElementById('nw-bedrag').value;
+  const bedrag    = bedragRaw ? parseFloat(bedragRaw.replace(/\./g, '').replace(',', '.')) : null;
   const status    = document.getElementById('nw-status').value;
 
   if (!klant) { showToast('Selecteer eerst een dossier'); return; }
