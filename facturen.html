@@ -933,8 +933,8 @@ function renderFactTotals(data) {
     // Netto berekend resultaat: gebruik calcAmt voor reguliere facturen, richting voor vrije
     let berekendIncl;
     if (row.regels?.vrij) {
-      const isVoordeel = (row.regels?.richting || 'voordeel') !== 'nadeel';
-      berekendIncl = factAmt * (isVoordeel ? 1 : -1);
+      // factAmt already carries the correct sign (nadeel rows store a negative bedrag)
+      berekendIncl = factAmt;
     } else {
       const calcAmt = row.regels?.bedrag_incl_calc;
       berekendIncl = (calcAmt != null ? calcAmt : factAmt) * sign;
@@ -945,7 +945,8 @@ function renderFactTotals(data) {
 
     // Verschil
     if (row.regels?.vrij) {
-      sumVerschil += factAmt * ((row.regels?.richting || 'voordeel') !== 'nadeel' ? 1 : -1);
+      // factAmt already carries the correct sign — no need to flip for nadeel
+      sumVerschil += factAmt || 0;
     } else {
       const calcAmt = row.regels?.bedrag_incl_calc;
       if (calcAmt != null && row.bedrag != null) {
