@@ -968,26 +968,27 @@ function renderFactTotals(data) {
 
     } else if (col.type === 'amount') {
       td.style.textAlign = 'right';
-      if (sumNettoBerekend < -0.005) {
-        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumNettoBerekend)}</span>`;
+      const actualTotal = sumExcl + sumBtw;
+      if (actualTotal < -0.005) {
+        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-actualTotal)}</span>`;
       } else {
-        td.textContent = formatAmount(sumNettoBerekend);
+        td.textContent = formatAmount(actualTotal);
       }
 
     } else if (col.type === 'exclbtw') {
       td.style.textAlign = 'right';
-      if (sumExclBerekend < -0.005) {
-        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumExclBerekend)}</span>`;
+      if (sumExcl < -0.005) {
+        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumExcl)}</span>`;
       } else {
-        td.textContent = formatAmount(sumExclBerekend);
+        td.textContent = formatAmount(sumExcl);
       }
 
     } else if (col.type === 'btwamt') {
       td.style.textAlign = 'right';
-      if (sumBtwBerekend < -0.005) {
-        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumBtwBerekend)}</span>`;
+      if (sumBtw < -0.005) {
+        td.innerHTML = `<span style="color:#c0392b">− ${formatAmount(-sumBtw)}</span>`;
       } else {
-        td.textContent = formatAmount(sumBtwBerekend);
+        td.textContent = formatAmount(sumBtw);
       }
 
     } else if (col.type === 'verschil') {

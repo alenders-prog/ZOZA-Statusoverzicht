@@ -698,10 +698,9 @@ function addFactuurOverzicht(container,tableTitle,getAmounts,invertSign){
 // ── Automatisch bedrag_incl_calc bijwerken na berekeningswijziging ──
 async function autoRefreshCalcAmounts(){
   if(!nwDossierData||!nwDossierFacturen.length)return;
-  const AFFECTED=['Vergoedingsfactuur Zorgzaam Scheiden','Uitbetaling vergoedingen toevoegingen'];
-  const affected=nwDossierFacturen.filter(f=>AFFECTED.includes(f.regels?.sub_label)&&!f.regels?.vrij);
-  if(!affected.length)return;
   const calcMap=computePdfCalcMap();
+  const affected=nwDossierFacturen.filter(f=>f.regels?.sub_label&&(f.regels.sub_label in calcMap)&&!f.regels?.vrij);
+  if(!affected.length)return;
   for(const f of affected){
     const entry=calcMap[f.regels.sub_label];
     if(!entry)continue;
