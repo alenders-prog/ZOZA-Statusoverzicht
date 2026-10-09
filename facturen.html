@@ -728,9 +728,8 @@ function renderRows(data) {
       } else if (col.type === 'exclbtw') {
         const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
         const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
-        const exclVal = row.regels?.vrij
-          ? (row.regels.bedrag_excl ?? (bedrag != null ? bedrag / 1.21 : null))
-          : (bedrag != null ? bedrag / 1.21 : null);
+        const exclVal = row.regels?.bedrag_excl
+          ?? (bedrag != null ? bedrag / 1.21 : null);
         td.className = 'date-td editable-row-cell';
         td.style.cssText += 'text-align:right;cursor:pointer;';
         const exclDisplay = exclVal != null
@@ -741,9 +740,8 @@ function renderRows(data) {
       } else if (col.type === 'btwamt') {
         const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
         const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
-        const btwVal = row.regels?.vrij
-          ? (row.regels.bedrag_btw ?? (bedrag != null ? bedrag - bedrag / 1.21 : null))
-          : (bedrag != null ? bedrag - bedrag / 1.21 : null);
+        const btwVal = row.regels?.bedrag_btw
+          ?? (bedrag != null ? bedrag - bedrag / 1.21 : null);
         td.className = 'date-td editable-row-cell';
         td.style.cssText += 'text-align:right;cursor:pointer;';
         const btwDisplay = btwVal != null
@@ -851,9 +849,8 @@ function getSortVal(row, col) {
     }
     case 'exclbtw': {
       const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
-      const excl = row.regels?.vrij
-        ? (row.regels.bedrag_excl ?? (bedrag != null ? bedrag / 1.21 : null))
-        : (bedrag != null ? bedrag / 1.21 : null);
+      const excl = row.regels?.bedrag_excl
+        ?? (bedrag != null ? bedrag / 1.21 : null);
       if (excl == null) return null;
       const isIncoming = row.regels?.sub_label === 'Vergoedingsfactuur Zorgzaam Scheiden';
       return isIncoming ? -excl : excl;
@@ -920,13 +917,9 @@ function renderFactTotals(data) {
     if (eff === 'open')     cntOpen++;
     if (eff === 'verlopen') cntVerlopen++;
 
-    // Excl BTW en BTW (obv werkelijk gefactureerd bedrag)
-    const exclVal = row.regels?.vrij
-      ? (row.regels.bedrag_excl ?? factAmt / 1.21)
-      : factAmt / 1.21;
-    const btwVal  = row.regels?.vrij
-      ? (row.regels.bedrag_btw  ?? factAmt - factAmt / 1.21)
-      : factAmt - factAmt / 1.21;
+    // Excl BTW en BTW (gebruik opgeslagen waarden indien beschikbaar, anders berekend via 21%)
+    const exclVal = row.regels?.bedrag_excl ?? factAmt / 1.21;
+    const btwVal  = row.regels?.bedrag_btw  ?? factAmt - factAmt / 1.21;
     sumExcl += exclVal * sign;
     sumBtw  += btwVal  * sign;
 
@@ -1063,17 +1056,15 @@ function exportCSV() {
       }
       if (col.type === 'exclbtw') {
         const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
-        const excl = row.regels?.vrij
-          ? (row.regels.bedrag_excl ?? (bedrag != null ? bedrag / 1.21 : null))
-          : (bedrag != null ? bedrag / 1.21 : null);
+        const excl = row.regels?.bedrag_excl
+          ?? (bedrag != null ? bedrag / 1.21 : null);
         if (excl == null) return '';
         return (isIncoming ? -excl : excl).toFixed(2).replace('.', ',');
       }
       if (col.type === 'btwamt') {
         const bedrag = row.bedrag != null ? parseFloat(row.bedrag) : null;
-        const btw = row.regels?.vrij
-          ? (row.regels.bedrag_btw ?? (bedrag != null ? bedrag - bedrag / 1.21 : null))
-          : (bedrag != null ? bedrag - bedrag / 1.21 : null);
+        const btw = row.regels?.bedrag_btw
+          ?? (bedrag != null ? bedrag - bedrag / 1.21 : null);
         if (btw == null) return '';
         return (isIncoming ? -btw : btw).toFixed(2).replace('.', ',');
       }
