@@ -172,7 +172,7 @@ function getInitialColumn(row) {
 }
 
 function getColumn(row) {
-  if (hasValue(row.zoza_afgerond) && computeHypFee(row) !== null) return 'afgerond';
+  if ((hasValue(row.zoza_afgerond) || row.zoza_afgerond === 'n.v.t.') && computeHypFee(row) !== null) return 'afgerond';
   return getInitialColumn(row);
   // Manual drag-and-drop override disabled — re-enable the lines below to restore it:
   // if (isRechtbankNee(row)) return getInitialColumn(row);
