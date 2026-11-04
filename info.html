@@ -356,7 +356,7 @@ const STATUS_SECTIONS = [
     { key: 'vergoeding_aangevraagd', label: 'Vergoeding aangevraagd', type: 'date'    },
     { key: 'vergoeding_ontvangen',   label: 'Vergoeding ontvangen',   type: 'date'    },
     { key: 'zoza_afgerond',          label: 'ZOZA afgerond',          type: 'date'    },
-    { key: 'hyp_fee_ontvangen',      label: 'Hyp.fee ontvangen',      type: 'display' },
+    { key: 'hyp_fee_ontvangen',      label: 'Hyp.fee ontvangen',      type: 'date'    },
   ]},
 ];
 
@@ -523,6 +523,31 @@ Object.assign(STATUS_FIELD_LABELS, {
 });
 
 function saveStatusField(key, value) {
+  // hyp_fee_ontvangen is computed — redirect to real DB column(s)
+  if (key === 'hyp_fee_ontvangen') {
+    const label = STATUS_FIELD_LABELS[key] || FIELD_LABELS[key] || 'Hyp.fee ontvangen';
+    if (statusData.hypotheek_a === 1) {
+      logChange(dossierId, statusData.klant || '', label, statusData.hyp_factuur_betaald_a == null ? '' : String(statusData.hyp_factuur_betaald_a), value == null ? '' : String(value));
+      statusData.hyp_factuur_betaald_a = value;
+      statusSaveQueue['hyp_factuur_betaald_a'] = value;
+    }
+    if (statusData.hypotheek_b === 1) {
+      if (statusData.hypotheek_a !== 1) logChange(dossierId, statusData.klant || '', label, statusData.hyp_factuur_betaald_b == null ? '' : String(statusData.hyp_factuur_betaald_b), value == null ? '' : String(value));
+      statusData.hyp_factuur_betaald_b = value;
+      statusSaveQueue['hyp_factuur_betaald_b'] = value;
+    }
+    statusData.hyp_fee_ontvangen = computeHypFee(statusData);
+    refreshStatusAlarms();
+    clearTimeout(statusSaveTimer);
+    setSyncStatus('saving');
+    statusSaveTimer = setTimeout(async () => {
+      const patch = { ...statusSaveQueue };
+      statusSaveQueue = {};
+      const { error } = await db.from('dossiers').update(patch).eq('id', dossierId);
+      if (error) setSyncStatus('error'); else setSyncStatus('saved');
+    }, 700);
+    return;
+  }
   if (key !== 'opmerkingen_gewijzigd' && key !== 'opmerkingen') {
     const label = STATUS_FIELD_LABELS[key] || FIELD_LABELS[key];
     if (label) logChange(dossierId, statusData.klant || '', label, statusData[key] == null ? '' : String(statusData[key]), value == null ? '' : String(value));
